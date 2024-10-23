@@ -19,6 +19,17 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    records (id) {
+        transaction_id -> Uuid,
+        account_id_from -> Nullable<Uuid>,
+        account_id_to -> Nullable<Uuid>,
+        created_at -> Timestamp,
+        amount -> Float8,
+        currency -> Varchar,
+    }
+}
+
 diesel::joinable!(sub_accounts -> accounts (account_id));
 
 diesel::allow_tables_to_appear_in_same_query!(

@@ -5,7 +5,7 @@ use bigdecimal::BigDecimal;
 // use chrono::Utc;
 use dotenvy::dotenv;
 use std::env;
-use crate::{models::{Account, SubAccount}, schema::sub_accounts::{balance, currency}};
+use crate::{models::{Account, SubAccount, Record}, schema::sub_accounts::{balance, currency}};
 // use crate::schema::accounts;
 
 
@@ -81,4 +81,99 @@ pub fn check_duplicate_account(conn: &mut PgConnection, holder_name: &str) -> bo
     } else {
         return false;
     }
+}
+
+pub fn validate_transaction(conn: &mut PgConnection, account_id_from: Uuid, account_id_to: Uuid, amount: f64) -> bool {
+    use crate::schema::sub_accounts::dsl::*;
+    let result_from = sub_accounts
+        .filter(account_id.eq(account_id_from))
+        .load::<SubAccount>(conn)
+        .expect("Error loading sub account");
+
+    let result_to = sub_accounts
+        .filter(account_id.eq(account_id_to))
+        .load::<SubAccount>(conn)
+        .expect("Error loading sub account");
+
+    if result_from.len() == 0 || result_to.len() == 0 {
+        return false;
+    }
+
+    let currecy_from = result_from[0].currency.clone();
+    let currecy_to = result_to[0].currency.clone();
+    let balance_from = result_from[0].balance;
+    let balance_to = result_to[0].balance;
+
+    if currecy_from != currecy_to {
+        return false;
+    }
+
+    if balance_from < amount {
+        return false;
+    }
+
+    return true;
+}
+
+pub fn transfer_amount(conn: &mut PgConnection, account_id_from: Uuid, account_id_to: Uuid, amount: f64, currency_to_transfer: String) -> Result<(), diesel::result::Error> {
+    use crate::schema::sub_accounts::dsl::*;
+    let result_from = sub_accounts
+        .filter(account_id.eq(account_id_from))
+        .load::<SubAccount>(conn)
+        .expect("Error loading sub account");
+
+    let result_to = sub_accounts
+        .filter(account_id.eq(account_id_to))
+        .load::<SubAccount>(conn)
+        .expect("Error loading sub account");
+
+    let balance_from = result_from[0].balance;
+    let balance_to = result_to[0].balance;
+
+    let new_balance_from = balance_from - amount;
+    let new_balance_to = balance_to + amount;
+
+    let update_from = diesel::update(sub_accounts.find(account_id_from))
+        .set(balance.eq(new_balance_from))
+        .execute(conn);
+
+    let update_to = diesel::update(sub_accounts.find(account_id_to))
+        .set(balance.eq(new_balance_to))
+        .execute(conn);
+
+    match update_from {
+        Ok(_) => {
+            match update_to {
+                Ok(_) => {
+                    return Ok(());
+                },
+                Err(e) => {
+                    return Err(e);
+                }
+            }
+        },
+        Err(e) => {
+            return Err(e);
+        }
+
+        create_transaction_entry(conn, account_id_from, account_id_to, amount, currency_to_transfer);
+    }
+}
+
+pub fn create_transaction_entry(conn: &mut PgConnection, account_id_from: Uuid, account_id_to: Uuid, amount_to_transfer: f64, currency_to_transfer: String) -> Result<(), diesel::result::Error> {
+    validate_transaction(conn, account_id_from, account_id_to, amount_to_transfer);
+    use crate::schema::records::dsl::*;
+    let new_record = crate::models::Record {
+        transaction_id: Uuid::new_v4(),
+        account_id_from: Some(account_id_from),
+        account_id_to: Some(account_id_to),
+        created_at: chrono::Utc::now().naive_utc(),
+        amount: amount_to_transfer,
+        currency: currency_to_transfer,
+    };
+
+    Ok(diesel::insert_into(records)
+        .values(&new_record)
+        .execute(conn)
+        .expect("Error saving new record"))
 }

@@ -7,7 +7,7 @@ CREATE TABLE accounts (
     status VARCHAR NOT NULL DEFAULT 'active'
 );
 
--- Create sub_accounts table
+-- Creatse sub_accounts table
 CREATE TABLE sub_accounts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     account_id UUID REFERENCES accounts(id) ON DELETE CASCADE,
@@ -16,3 +16,13 @@ CREATE TABLE sub_accounts (
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE records (
+    transaction_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    account_id_from UUID REFERENCES sub_accounts(id) ON DELETE CASCADE,
+    account_id_to UUID REFERENCES sub_accounts(id) ON DELETE CASCADE,
+    account_holder_from VARCHAR NOT NULL,
+    account_holder_to VARCHAR NOT NULL,
+    amount DOUBLE PRECISION NOT NULL,
+    currency VARCHAR NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);

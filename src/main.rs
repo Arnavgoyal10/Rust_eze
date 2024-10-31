@@ -15,7 +15,6 @@ use clap::{Parser, Subcommand};
 use regex::Regex;
 use std::io::{self, Write};
 use uuid::Uuid;
-use crate::database::transfer_amount;
 
 #[derive(Parser)]
 #[command(name = "Account Manager")]
@@ -200,48 +199,46 @@ fn validate_user_credentials(conn: &mut diesel::PgConnection, username: &str, pa
 fn main() {
     dotenv().ok();  // Load environment variables from .env
     let mut conn = establish_connection();
-    // loop {
-    //     // Start the CLI loop by asking for user input
-    //     println!("What can we do for you?");
-    //     println!("1. Create Account");
-    //     println!("2. Create Sub-Account");
-    //     println!("3. Exit");
+    loop {
+        // Start the CLI loop by asking for user input
+        println!("What can we do for you?");
+        println!("1. Create Account");
+        println!("2. Create Sub-Account");
+        println!("3. Exit");
         
-    //     // Get the user's choice
-    //     let mut choice = String::new();
-    //     print!("Enter your choice (1-3): ");
-    //     io::stdout().flush().unwrap();
-    //     io::stdin().read_line(&mut choice).unwrap();
-    //     let choice = choice.trim();
+        // Get the user's choice
+        let mut choice = String::new();
+        print!("Enter your choice (1-3): ");
+        io::stdout().flush().unwrap();
+        io::stdin().read_line(&mut choice).unwrap();
+        let choice = choice.trim();
 
-    //     match choice {
-    //         "1" => create_account_flow(&mut conn),
-    //         "2" => create_sub_account_flow(&mut conn),
-    //         "3" => {
-    //             println!("Exiting... Goodbye!");
-    //             break;
-    //         }
-    //         _ => println!("Invalid choice, please try again."),
-    //     }
-    // }
+        match choice {
+            "1" => create_account_flow(&mut conn),
+            "2" => create_sub_account_flow(&mut conn),
+            "3" => {
+                println!("Exiting... Goodbye!");
+                break;
+            }
+            _ => println!("Invalid choice, please try again."),
+        }
+    }
 
     // Create or get an account (if "John Doe" exists, it will return the existing one)
-    let account_id_temp = create_account(&mut conn, "John Doe").unwrap();
-    let account_id_temp2 = create_account(&mut conn, "Mr Singh").unwrap();
+    // let account_id_temp2 = create_account(&mut conn, "John Doe");
+    // let account_id_temp = account_id_temp2.unwrap();
 
     // // // Create or get a sub-account with the specified currency for this account
-    let sub_account_id_usd = create_sub_account(&mut conn, account_id_temp.id, "USD", 1000.0);
-    let sub_account_id_usd2 = create_sub_account(&mut conn, account_id_temp2.id, "USD", 1000.0);
+    // let sub_account_id_usd = create_sub_account(&mut conn, account_id_temp.id, "USD", 1000.0);
 
     // // // Trying to create the same sub-account with USD again won't create a duplicate
     // let sub_account_id_usd_duplicate = create_sub_account(&mut conn, account_id_temp.id, "USD", 1000.0);
 
     // // // Create another sub-account for the same account with a different currency
-    let sub_account_id_eur = create_sub_account(&mut conn, account_id_temp.id, "EUR", 500.0);
+    // let sub_account_id_eur = create_sub_account(&mut conn, account_id_temp.id, "EUR", 500.0);
 
     // let account_id_duplicate = create_account(&mut conn, "John Doe");
 
-    let transaction1 = transfer_amount(&mut conn, account_id_temp.id, account_id_temp2.id, 100.0, "USD");
     
     // println!("Account: {:#?}", account_id);
     // println!("Sub-Account (USD) ID: {:#?}", sub_account_id_usd);

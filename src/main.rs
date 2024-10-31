@@ -74,21 +74,6 @@ fn create_account_flow(conn: &mut diesel::PgConnection) {
         // Placeholder: replace with actual database call
         let account = create_account(conn, account_name).expect("Failed to create account");
         println!("Account created: {:#?}", account);
-
-        // Call the Python script to generate TOTP secret
-        let account_id = account.id; // Assuming `account` has an `id` field
-        let output = std::process::Command::new("python")
-            .arg("otp.py")
-            .arg("generate")
-            .arg(account_id.to_string())
-            .output()
-            .expect("Failed to execute Python script");
-
-        if output.status.success() {
-            println!("TOTP secret generated and stored successfully.");
-        } else {
-            eprintln!("Failed to generate TOTP secret: {:?}", output.stderr);
-        }
     } else {
         println!("Invalid account name. It must contain only letters and numbers.");
     }
@@ -143,57 +128,6 @@ fn create_sub_account_flow(conn: &mut diesel::PgConnection) {
     let sub_account =
         create_sub_account(conn, subaccount_insert_account_id, currency, balance).expect("Failed to create sub-account");
     println!("Sub-account created: {:#?}", sub_account);
-}
-
-fn login_flow(conn: &mut diesel::PgConnection) {
-    // User login flow
-    let mut username = String::new();
-    let mut password = String::new();
-    let mut totp_code = String::new();
-
-    // Get username input
-    print!("Enter username: ");
-    io::stdout().flush().unwrap();
-    io::stdin().read_line(&mut username).unwrap();
-    let username = username.trim();
-
-    // Get password input
-    print!("Enter password: ");
-    io::stdout().flush().unwrap();
-    io::stdin().read_line(&mut password).unwrap();
-    let password = password.trim();
-
-    // Validate username and password (placeholder logic)
-    if validate_user_credentials(conn, username, password) {
-        // Get TOTP code input
-        print!("Enter TOTP code: ");
-        io::stdout().flush().unwrap();
-        io::stdin().read_line(&mut totp_code).unwrap();
-        let totp_code = totp_code.trim();
-
-        // Call the Python script to verify TOTP
-        let output = std::process::Command::new("python")
-            .arg("otp.py")
-            .arg("verify")
-            .arg(username)
-            .arg(totp_code)
-            .output()
-            .expect("Failed to execute Python script");
-
-        if output.status.success() {
-            println!("Login successful.");
-        } else {
-            eprintln!("Login failed: Invalid TOTP code.");
-        }
-    } else {
-        println!("Invalid username or password.");
-    }
-}
-
-// Placeholder function for user credential validation
-fn validate_user_credentials(conn: &mut diesel::PgConnection, username: &str, password: &str) -> bool {
-    // Implement actual logic to validate username and password
-    true
 }
 
 fn main() {

@@ -6,7 +6,6 @@ diesel::table! {
         account_holder_name -> Varchar,
         created_at -> Timestamp,
         status -> Varchar,
-        totp_secret -> Varchar,
     }
 }
 

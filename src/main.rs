@@ -4,13 +4,8 @@ mod database;
 
 // use diesel::pg::PgConnection;
 use dotenvy::dotenv;
-use schema::sub_accounts::account_id;
 // use std::env;
-use crate::models::Account;
-use crate::database::{establish_connection, create_account, create_sub_account};
-use diesel::prelude::*;
-use crate::models::{SubAccount, NewSubAccount};
-use crate::schema::sub_accounts;
+use crate::database::{establish_connection, create_account, create_sub_account, commit_transaction, get_balance};
 use clap::{Parser, Subcommand};
 use regex::Regex;
 use std::io::{self, Write};
@@ -133,46 +128,86 @@ fn create_sub_account_flow(conn: &mut diesel::PgConnection) {
 fn main() {
     dotenv().ok();  // Load environment variables from .env
     let mut conn = establish_connection();
-    loop {
-        // Start the CLI loop by asking for user input
-        println!("What can we do for you?");
-        println!("1. Create Account");
-        println!("2. Create Sub-Account");
-        println!("3. Exit");
+    // loop {
+    //     // Start the CLI loop by asking for user input
+    //     println!("What can we do for you?");
+    //     println!("1. Create Account");
+    //     println!("2. Create Sub-Account");
+    //     println!("3. Exit");
         
-        // Get the user's choice
-        let mut choice = String::new();
-        print!("Enter your choice (1-3): ");
-        io::stdout().flush().unwrap();
-        io::stdin().read_line(&mut choice).unwrap();
-        let choice = choice.trim();
+    //     // Get the user's choice
+    //     let mut choice = String::new();
+    //     print!("Enter your choice (1-3): ");
+    //     io::stdout().flush().unwrap();
+    //     io::stdin().read_line(&mut choice).unwrap();
+    //     let choice = choice.trim();
 
-        match choice {
-            "1" => create_account_flow(&mut conn),
-            "2" => create_sub_account_flow(&mut conn),
-            "3" => {
-                println!("Exiting... Goodbye!");
-                break;
-            }
-            _ => println!("Invalid choice, please try again."),
-        }
-    }
+    //     match choice {
+    //         "1" => create_account_flow(&mut conn),
+    //         "2" => create_sub_account_flow(&mut conn),
+    //         "3" => {
+    //             println!("Exiting... Goodbye!");
+    //             break;
+    //         }
+    //         _ => println!("Invalid choice, please try again."),
+    //     }
+    // }
 
     // Create or get an account (if "John Doe" exists, it will return the existing one)
-    // let account_id_temp2 = create_account(&mut conn, "John Doe");
-    // let account_id_temp = account_id_temp2.unwrap();
+    let account_id_temp1 = create_account(&mut conn, "John Doe");
+    let account_id_temp1 = account_id_temp1.unwrap();
+    let account_id_temp2 = create_account(&mut conn, "Charchit Aggarwal");
+    let account_id_temp2 = account_id_temp2.unwrap();
+
 
     // // // Create or get a sub-account with the specified currency for this account
-    // let sub_account_id_usd = create_sub_account(&mut conn, account_id_temp.id, "USD", 1000.0);
-
-    // // // Trying to create the same sub-account with USD again won't create a duplicate
-    // let sub_account_id_usd_duplicate = create_sub_account(&mut conn, account_id_temp.id, "USD", 1000.0);
+    let sub_account_id_usd1 = create_sub_account(&mut conn, account_id_temp1.id, "USD", 1000.0).expect("Failed to create sub-account");
+    let sub_account_id_usd2 = create_sub_account(&mut conn, account_id_temp2.id, "USD", 1000.0).expect("Failed to create sub-account");
 
     // // // Create another sub-account for the same account with a different currency
-    // let sub_account_id_eur = create_sub_account(&mut conn, account_id_temp.id, "EUR", 500.0);
+    let sub_account_id_eur = create_sub_account(&mut conn, account_id_temp1.id, "EUR", 500.0);
 
     // let account_id_duplicate = create_account(&mut conn, "John Doe");
 
+    // Test case 1: Successful transaction
+    match commit_transaction(&mut conn, account_id_temp1.id, account_id_temp2.id, 100.0, "USD") {
+        Ok(transaction) => println!("Transaction successful: {:#?}", transaction),
+        Err(e) => println!("Transaction failed: {:?}", e),
+    }
+    let balance_temp1 = get_balance(&mut conn, account_id_temp1.id, "USD").expect("Failed to get balance");
+    println!("Balance of account_id_temp1: {}", balance_temp1);
+    let balance_temp2 = get_balance(&mut conn, account_id_temp2.id, "USD").expect("Failed to get balance");
+    println!("Balance of account_id_temp2: {}", balance_temp2);
+    
+    // Test case 2: Insufficient balance
+    match commit_transaction(&mut conn, account_id_temp1.id, account_id_temp2.id, 2000.0, "USD") {
+        Ok(transaction) => println!("Transaction successful but should fail: {:#?}", transaction),
+        Err(e) => println!("Transaction failed as expected (insufficient funds): {:?}", e),
+    }
+    let balance_temp1 = get_balance(&mut conn, account_id_temp1.id, "USD").expect("Failed to get balance");
+    println!("Balance of account_id_temp1: {}", balance_temp1);
+    let balance_temp2 = get_balance(&mut conn, account_id_temp2.id, "USD").expect("Failed to get balance");
+    println!("Balance of account_id_temp2: {}", balance_temp2);
+    
+    // Test case 3: Invalid currency (EUR account doesn't exist for account_id_temp2)
+    match commit_transaction(&mut conn, account_id_temp1.id, account_id_temp2.id, 100.0, "EUR") {
+        Ok(transaction) => println!("Transaction successful but should fail: {:#?}", transaction),
+        Err(e) => println!("Transaction failed as expected (invalid currency): {:?}", e),
+    }
+    let balance_temp1 = get_balance(&mut conn, account_id_temp1.id, "USD").expect("Failed to get balance");
+    println!("Balance of account_id_temp1: {}", balance_temp1);
+    let balance_temp2 = get_balance(&mut conn, account_id_temp2.id, "USD").expect("Failed to get balance");
+    println!("Balance of account_id_temp2: {}", balance_temp2);
+    
+    // Test case 4: Transfer between same currency accounts
+    match commit_transaction(&mut conn, account_id_temp2.id, account_id_temp1.id, 50.0, "USD") {
+        Ok(transaction) => println!("Transaction successful: {:#?}", transaction),
+        Err(e) => println!("Transaction failed: {:?}", e),
+    }
+    let balance_temp1 = get_balance(&mut conn, account_id_temp1.id, "USD").expect("Failed to get balance");
+    println!("Balance of account_id_temp1: {}", balance_temp1);
+    let balance_temp2 = get_balance(&mut conn, account_id_temp2.id, "USD").expect("Failed to get balance");
+    println!("Balance of account_id_temp2: {}", balance_temp2);
     
     // println!("Account: {:#?}", account_id);
     // println!("Sub-Account (USD) ID: {:#?}", sub_account_id_usd);

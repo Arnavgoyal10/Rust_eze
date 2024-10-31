@@ -3,11 +3,7 @@ use uuid::Uuid;
 use chrono::NaiveDateTime;
 use crate::schema::accounts;
 use crate::schema::sub_accounts;
-// use crate::schema::sub_accounts::dsl::sub_accounts;
-// use crate::schema::sub_accounts::dsl::*;
-
-
-
+use crate::schema::transactions;
 
 #[derive(Queryable, Debug, QueryableByName, Selectable)]
 #[diesel(table_name = accounts)]
@@ -25,7 +21,6 @@ pub struct NewAccount<'a> {
     pub status: &'a str,
 }
 
-
 #[derive(Queryable, Debug, QueryableByName, Selectable)]
 #[diesel(table_name = sub_accounts)]
 pub struct SubAccount {
@@ -36,11 +31,30 @@ pub struct SubAccount {
     pub created_at: NaiveDateTime,
 }
 
-
 #[derive(Insertable)]
 #[diesel(table_name = sub_accounts)]
 pub struct NewSubAccount<'a> {
-    pub account_id: Option<Uuid>, // Nullable, hence Option<Uuid>
+    pub account_id: Option<Uuid>,
     pub currency: &'a str,
     pub balance: f64,
+}
+
+#[derive(Queryable, Debug, QueryableByName, Selectable)]
+#[diesel(table_name = transactions)]
+pub struct Transaction {
+    pub transaction_id: Uuid,
+    pub account_id_from: Option<Uuid>,
+    pub account_id_to: Option<Uuid>,
+    pub amount: f64,
+    pub transfer_currency: String,
+    pub transaction_date: NaiveDateTime,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = transactions)]
+pub struct NewTransaction<'a> {
+    pub account_id_from: Option<Uuid>,
+    pub account_id_to: Option<Uuid>,
+    pub amount: f64,
+    pub transfer_currency: &'a str,
 }

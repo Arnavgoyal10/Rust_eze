@@ -1,11 +1,11 @@
-use diesel::prelude::*;
+use diesel::{prelude::*, update};
 use diesel::pg::PgConnection;
 use uuid::Uuid;
 use bigdecimal::BigDecimal;
 // use chrono::Utc;
 use dotenvy::dotenv;
 use std::env;
-use crate::{models::{Account, SubAccount}, schema::sub_accounts::{balance, currency}};
+use crate::models::{Account, SubAccount, Transaction, NewTransaction};
 // use crate::schema::accounts;
 
 
@@ -81,4 +81,91 @@ pub fn check_duplicate_account(conn: &mut PgConnection, holder_name: &str) -> bo
     } else {
         return false;
     }
+}
+
+// to create a new transaction we want to first check if the account_id_from and account_id_to are valid and have valid subaccounts
+// of the given currency, if they do then we check if the amount to be transfered is actally in the account from which it is being sent,
+// if yes, then we call a function called update_balance
+pub fn commit_transaction(
+    conn: &mut PgConnection,
+    from_account: Uuid,
+    to_account: Uuid,
+    amount_to_transfer: f64,
+    currency_to_transfer: &str
+) -> Result<Transaction, diesel::result::Error> {
+    use crate::schema::sub_accounts::dsl::*;
+    use crate::schema::transactions::dsl::*;
+    
+    // Check if both accounts have sub-accounts with matching currency
+    let from_sub = match sub_accounts
+        .filter(account_id.eq(from_account))
+        .filter(currency.eq(currency_to_transfer))
+        .first::<SubAccount>(conn)
+    {
+        Ok(account) => account,
+        Err(diesel::result::Error::NotFound) => {
+            return Err(diesel::result::Error::RollbackTransaction);
+        }
+        Err(e) => return Err(e),
+    };
+
+    let to_sub = match sub_accounts
+        .filter(account_id.eq(to_account))
+        .filter(currency.eq(currency_to_transfer))
+        .first::<SubAccount>(conn)
+    {
+        Ok(account) => account,
+        Err(diesel::result::Error::NotFound) => {
+            return Err(diesel::result::Error::RollbackTransaction);
+        }
+        Err(e) => return Err(e),
+    };
+        
+    // Verify sufficient balance
+    if from_sub.balance < amount_to_transfer {
+        return Err(diesel::result::Error::RollbackTransaction);
+    }
+
+    // Update balances
+    update_balance(conn, from_sub.id, -amount_to_transfer)?;
+    update_balance(conn, to_sub.id, amount_to_transfer)?;
+
+    // Create the transaction record
+    let new_transaction = NewTransaction {
+        account_id_from: Some(from_sub.id),
+        account_id_to: Some(to_sub.id),
+        amount: amount_to_transfer,
+        transfer_currency: currency_to_transfer,
+    };
+
+    diesel::insert_into(transactions)
+        .values(&new_transaction)
+        .returning(Transaction::as_returning())
+        .get_result(conn)
+}
+
+pub fn update_balance(
+    conn: &mut PgConnection,
+    sub_account_id: Uuid,
+    amount_change: f64
+) -> Result<SubAccount, diesel::result::Error> {
+    use crate::schema::sub_accounts::dsl::*;
+    
+    diesel::update(sub_accounts.find(sub_account_id))
+        .set(balance.eq(balance + amount_change))
+        .returning(SubAccount::as_returning())
+        .get_result(conn)
+}
+
+pub fn get_balance(
+    conn: &mut PgConnection,
+    account_id_to_get_balance: Uuid,
+    currency_to_get_balance: &str
+) -> Result<f64, diesel::result::Error> {
+    use crate::schema::sub_accounts::dsl::*;
+    let sub_account = sub_accounts
+        .filter(account_id.eq(account_id_to_get_balance))
+        .filter(currency.eq(currency_to_get_balance))
+        .first::<SubAccount>(conn)?;
+    Ok(sub_account.balance)
 }

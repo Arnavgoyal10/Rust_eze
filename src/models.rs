@@ -43,8 +43,8 @@ pub struct NewSubAccount<'a> {
 #[diesel(table_name = transactions)]
 pub struct Transaction {
     pub transaction_id: Uuid,
-    pub account_id_from: Option<Uuid>,
-    pub account_id_to: Option<Uuid>,
+    pub sub_account_id_from: Option<Uuid>,
+    pub sub_account_id_to: Option<Uuid>,
     pub amount: f64,
     pub transfer_currency: String,
     pub transaction_date: NaiveDateTime,
@@ -53,8 +53,8 @@ pub struct Transaction {
 #[derive(Insertable)]
 #[diesel(table_name = transactions)]
 pub struct NewTransaction<'a> {
-    pub account_id_from: Option<Uuid>,
-    pub account_id_to: Option<Uuid>,
+    pub sub_account_id_from: Option<Uuid>,
+    pub sub_account_id_to: Option<Uuid>,
     pub amount: f64,
     pub transfer_currency: &'a str,
 }

@@ -1,11 +1,13 @@
 mod models;
-pub mod schema;
+mod schema;
 mod database;
+mod moneytransfer;
 
 // use diesel::pg::PgConnection;
 use dotenvy::dotenv;
 // use std::env;
-use crate::database::{establish_connection, create_account, create_sub_account, commit_transaction, get_balance};
+use crate::database::{establish_connection, create_account, create_sub_account};
+use crate::moneytransfer::{transfer_between_sub_accounts, get_balance, commit_transaction};
 use clap::{Parser, Subcommand};
 use regex::Regex;
 use std::io::{self, Write};
@@ -208,6 +210,21 @@ fn main() {
     println!("Balance of account_id_temp1: {}", balance_temp1);
     let balance_temp2 = get_balance(&mut conn, account_id_temp2.id, "USD").expect("Failed to get balance");
     println!("Balance of account_id_temp2: {}", balance_temp2);
+
+
+    let balance_temp1 = get_balance(&mut conn, account_id_temp1.id, "USD").expect("Failed to get balance");
+    println!("Balance of account_id_temp1: {}", balance_temp1);
+    let balance_temp2 = get_balance(&mut conn, account_id_temp1.id, "EUR").expect("Failed to get balance");
+    println!("Balance of account_id_temp2: {}", balance_temp2);
+    match transfer_between_sub_accounts(&mut conn, account_id_temp1.id, "USD", "EUR", 100.0) {
+        Ok(transaction) => println!("Transaction successful: {:#?}", transaction),
+        Err(e) => println!("Transaction failed: {:?}", e),
+    }
+    let balance_temp1 = get_balance(&mut conn, account_id_temp1.id, "USD").expect("Failed to get balance");
+    println!("Balance of account_id_temp1: {}", balance_temp1);
+    let balance_temp2 = get_balance(&mut conn, account_id_temp1.id, "EUR").expect("Failed to get balance");
+    println!("Balance of account_id_temp2: {}", balance_temp2);
+
     
     // println!("Account: {:#?}", account_id);
     // println!("Sub-Account (USD) ID: {:#?}", sub_account_id_usd);

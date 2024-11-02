@@ -1,12 +1,10 @@
-use diesel::{prelude::*, update};
+use diesel::prelude::*;
 use diesel::pg::PgConnection;
 use uuid::Uuid;
-use bigdecimal::BigDecimal;
-// use chrono::Utc;
 use dotenvy::dotenv;
 use std::env;
 use crate::models::{Account, SubAccount, Transaction, NewTransaction};
-// use crate::schema::accounts;
+
 
 
 
@@ -132,8 +130,8 @@ pub fn commit_transaction(
 
     // Create the transaction record
     let new_transaction = NewTransaction {
-        account_id_from: Some(from_sub.id),
-        account_id_to: Some(to_sub.id),
+        sub_account_id_from: Some(from_sub.id),
+        sub_account_id_to: Some(to_sub.id),
         amount: amount_to_transfer,
         transfer_currency: currency_to_transfer,
     };
@@ -169,3 +167,4 @@ pub fn get_balance(
         .first::<SubAccount>(conn)?;
     Ok(sub_account.balance)
 }
+

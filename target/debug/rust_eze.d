@@ -1,1 +1,0 @@
-/home/minibiscuitoreo/projects/Rust_eze/Rust_eze/target/debug/rust_eze: /home/minibiscuitoreo/projects/Rust_eze/Rust_eze/src/database.rs /home/minibiscuitoreo/projects/Rust_eze/Rust_eze/src/main.rs /home/minibiscuitoreo/projects/Rust_eze/Rust_eze/src/models.rs /home/minibiscuitoreo/projects/Rust_eze/Rust_eze/src/schema.rs

@@ -35,8 +35,8 @@ diesel::table! {
 diesel::table! {
     transactions (transaction_id) {
         transaction_id -> Uuid,
-        account_id_from -> Nullable<Uuid>,
-        account_id_to -> Nullable<Uuid>,
+        sub_account_id_from -> Nullable<Uuid>,
+        sub_account_id_to -> Nullable<Uuid>,
         amount -> Float8,
         transfer_currency -> Varchar,
         transaction_date -> Timestamp,

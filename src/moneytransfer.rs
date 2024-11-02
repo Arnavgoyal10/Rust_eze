@@ -1,13 +1,10 @@
-use actix_web::web::to;
 use diesel::prelude::*;
 use diesel::pg::PgConnection;
 use uuid::Uuid;
-use dotenvy::dotenv;
-use std::env;
 use crate::models::{Account, SubAccount, Transaction, NewTransaction};
 use reqwest::blocking::Client;
 use serde::Deserialize;
-use std::collections::HashMap;
+
 
 #[derive(Deserialize)]
 struct ExchangeRateResponse {

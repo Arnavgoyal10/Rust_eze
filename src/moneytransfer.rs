@@ -11,7 +11,7 @@ struct ExchangeRateResponse {
     conversion_result: f64,
 }
 
-pub fn commit_transaction(
+pub fn transfer_money(
     conn: &mut PgConnection,
     from_account: Uuid,
     to_account: Uuid,
@@ -154,4 +154,28 @@ pub fn transfer_between_sub_accounts(
         .values(&new_transaction)
         .returning(Transaction::as_returning())
         .get_result(conn)
+}
+
+
+pub fn get_transactions(
+    conn: &mut PgConnection,
+    account_id_temp: Uuid
+) -> Result<Vec<Transaction>, diesel::result::Error> {
+    use crate::schema::sub_accounts::dsl::*;
+    use crate::schema::transactions::dsl::*;
+    
+    // we need to get all transactions for all sub-accounts associated with the account
+    // first we get all sub-accounts for the account
+    let sub_accounts_temp = sub_accounts
+        .filter(account_id.eq(&account_id_temp))
+        .load::<SubAccount>(conn)?;
+    
+    // then we get all transactions for each sub-account
+    let sub_account_ids: Vec<_> = sub_accounts_temp.iter().map(|sa| sa.id).collect();
+    let transactions_temp = transactions
+        .filter(sub_account_id_from.eq_any(&sub_account_ids))
+        .or_filter(sub_account_id_to.eq_any(&sub_account_ids))
+        .load::<Transaction>(conn)?;
+
+    Ok(transactions_temp)
 }

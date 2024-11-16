@@ -25,3 +25,25 @@ CREATE TABLE transactions (
     transfer_currency VARCHAR NOT NULL,
     transaction_date TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+--Create pending transactions table
+CREATE TABLE pending_transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    account_id_to_add UUID REFERENCES sub_accounts(id) ON DELETE CASCADE,
+    amount DOUBLE PRECISION NOT NULL,
+    transfer_currency VARCHAR NOT NULL,
+    transaction_date TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Insert admin account with a known UUID
+INSERT INTO accounts (id, account_holder_name, status)
+VALUES ('00000000-0000-0000-0000-000000000000', 'SYSTEM_ADMIN', 'active');
+
+-- Create admin sub-accounts with infinite balance for major currencies
+INSERT INTO sub_accounts (account_id, currency, balance)
+VALUES 
+    ('00000000-0000-0000-0000-000000000000', 'USD', 999999999999.99),
+    ('00000000-0000-0000-0000-000000000000', 'EUR', 999999999999.99),
+    ('00000000-0000-0000-0000-000000000000', 'GBP', 999999999999.99),
+    ('00000000-0000-0000-0000-000000000000', 'JPY', 999999999999.99),
+    ('00000000-0000-0000-0000-000000000000', 'INR', 999999999999.99);

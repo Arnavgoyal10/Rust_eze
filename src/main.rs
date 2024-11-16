@@ -6,7 +6,7 @@ mod moneytransfer;
 // use diesel::pg::PgConnection;
 use dotenvy::dotenv;
 // use std::env;
-use crate::database::{establish_connection, create_account, create_sub_account};
+use crate::database::{establish_connection, create_account, create_sub_account, get_accounts};
 use crate::moneytransfer::{transfer_between_sub_accounts, get_balance, transfer_money, get_transactions};
 use clap::{Parser, Subcommand};
 use regex::Regex;
@@ -76,11 +76,10 @@ fn create_account_flow(conn: &mut diesel::PgConnection) {
     }
 }
 
-fn create_sub_account_flow(conn: &mut diesel::PgConnection) {
+fn create_sub_account_flow(conn: &mut diesel::PgConnection, subaccount_insert_account_id: Uuid) {
     // Sub-account creation flow
     let mut currency = String::new();
     let mut balance = String::new();
-    let mut subaccount_insert_account_id = String::new();
 
     // Get currency input
     print!("Enter currency (e.g., USD, EUR): ");
@@ -93,34 +92,7 @@ fn create_sub_account_flow(conn: &mut diesel::PgConnection) {
         return;
     }
 
-    // Get balance input
-    print!("Enter amount for the sub-account: ");
-    io::stdout().flush().unwrap();
-    io::stdin().read_line(&mut balance).unwrap();
-    let balance: f64 = match balance.trim().parse() {
-        Ok(b) => b,
-        Err(_) => {
-            println!("Invalid amount. Please enter a valid number.");
-            return;
-        }
-    };
-
-    // Get account ID input
-    print!("Enter your account ID: ");
-    io::stdout().flush().unwrap();
-    io::stdin().read_line(&mut subaccount_insert_account_id).unwrap();
-    let subaccount_insert_account_id: Uuid = match subaccount_insert_account_id.trim().parse() {
-        Ok(id) => id,
-        Err(_) => {
-            println!("Invalid account ID. Please enter a valid number.");
-            return;
-        }
-    };
-
-    if !validate_amount(balance) {
-        println!("Invalid amount. Please enter a valid number.");
-        return;
-    }
+    let balance = 0.0;
 
     println!(
         "Creating sub-account with currency: {}, balance: {}, for account ID: {}",
@@ -132,24 +104,11 @@ fn create_sub_account_flow(conn: &mut diesel::PgConnection) {
     }
 }
 
-pub fn transfer_money_to_someone_else_flow(conn: &mut diesel::PgConnection) {
+pub fn transfer_money_to_someone_else_flow(conn: &mut diesel::PgConnection, from_account_id: Uuid) {
     // Transfer money to someone else flow
-    let mut from_account_id = String::new();
     let mut to_account_id = String::new();
     let mut amount = String::new();
     let mut currency = String::new();
-
-    // Get from account ID input
-    print!("Enter your account ID: ");
-    io::stdout().flush().unwrap();
-    io::stdin().read_line(&mut from_account_id).unwrap();
-    let from_account_id: Uuid = match from_account_id.trim().parse() {
-        Ok(id) => id,
-        Err(_) => {
-            println!("Invalid account ID. Please enter a valid number.");
-            return;
-        }
-    };
 
     // Get to account ID input
     print!("Enter the recipient's account ID: ");
@@ -198,24 +157,11 @@ pub fn transfer_money_to_someone_else_flow(conn: &mut diesel::PgConnection) {
     }
 }
 
-pub fn transfer_between_sub_accounts_flow(conn: &mut diesel::PgConnection) {
+pub fn transfer_between_sub_accounts_flow(conn: &mut diesel::PgConnection, from_account_id: Uuid) {
     // Transfer between sub-accounts flow
-    let mut from_account_id = String::new();
     let mut amount = String::new();
     let mut from_currency = String::new();  
     let mut to_currency = String::new();
-
-    // Get from account ID input
-    print!("Enter your account ID: ");
-    io::stdout().flush().unwrap();
-    io::stdin().read_line(&mut from_account_id).unwrap();
-    let from_account_id: Uuid = match from_account_id.trim().parse() {
-        Ok(id) => id,
-        Err(_) => {
-            println!("Invalid account ID. Please enter a valid number.");
-            return;
-        }
-    };
 
     // Get from currency input
     print!("Enter the currency of the sub-account to transfer from: ");
@@ -265,22 +211,9 @@ pub fn transfer_between_sub_accounts_flow(conn: &mut diesel::PgConnection) {
 
 }
 
-fn get_balance_flow(conn: &mut diesel::PgConnection) {
+fn get_balance_flow(conn: &mut diesel::PgConnection, from_account_id: Uuid) {
     // Get balance flow
-    let mut account_id = String::new();
     let mut currency = String::new();
-
-    // Get account ID input
-    print!("Enter your account ID: ");
-    io::stdout().flush().unwrap();
-    io::stdin().read_line(&mut account_id).unwrap();
-    let account_id: Uuid = match account_id.trim().parse() {
-        Ok(id) => id,
-        Err(_) => {
-            println!("Invalid account ID. Please enter a valid number.");
-            return;
-        }
-    };
 
     // Get currency input
     print!("Enter the currency to get the balance for: ");
@@ -288,19 +221,42 @@ fn get_balance_flow(conn: &mut diesel::PgConnection) {
     io::stdin().read_line(&mut currency).unwrap();
     let currency = currency.trim();
 
-    println!("Getting balance for account {} in currency {}", account_id, currency);
+    println!("Getting balance for account {} in currency {}", from_account_id, currency);
 
-    match get_balance(conn, account_id, currency) {
+    match get_balance(conn, from_account_id, currency) {
         Ok(balance) => println!("Balance: {}", balance),
         Err(e) => println!("Failed to get balance: {:?}", e),
     }
 }
 
-fn get_transactions_flow(conn: &mut diesel::PgConnection) {
-    // Get transactions flow
-    let mut account_id = String::new();
+fn get_transactions_flow(conn: &mut diesel::PgConnection, account_id: Uuid) {
 
-    //get account id input
+    match get_transactions(conn, account_id) {
+        Ok(transactions) => println!("Transactions: {:#?}", transactions),
+        Err(e) => println!("Failed to get transactions: {:?}", e),
+    }
+}
+
+pub fn get_accounts_flow(conn: &mut diesel::PgConnection) {
+    match get_accounts(conn) {
+        Ok(accounts) => println!("Accounts: {:#?}", accounts),
+        Err(e) => println!("Failed to get accounts: {:?}", e),
+    }
+}
+
+pub fn validate_account_id(account_id: Uuid, conn: &mut diesel::PgConnection) -> bool {
+    use diesel::prelude::*;
+    use crate::schema::accounts::dsl::*;
+    use crate::models::Account;
+    // Use diesel's query interface instead of a non-existent find method
+    match accounts.find(account_id).first::<Account>(conn) {
+        Ok(_) => true,
+        Err(_) => false
+    }
+}
+
+pub fn login_flow(conn: &mut diesel::PgConnection) {
+    let mut account_id = String::new();
     print!("Enter your account ID: ");
     io::stdout().flush().unwrap();
     io::stdin().read_line(&mut account_id).unwrap();
@@ -311,25 +267,21 @@ fn get_transactions_flow(conn: &mut diesel::PgConnection) {
             return;
         }
     };
-
-    match get_transactions(conn, account_id) {
-        Ok(transactions) => println!("Transactions: {:#?}", transactions),
-        Err(e) => println!("Failed to get transactions: {:?}", e),
+    // If account is not found, return
+    if !validate_account_id(account_id, conn) {
+        println!("Account not found");
+        return;
     }
-}
 
-fn main() {
-    dotenv().ok();  // Load environment variables from .env
-    let mut conn = establish_connection();
     loop {
         // Start the CLI loop by asking for user input
         println!("What can we do for you?");
-        println!("1. Create Account");
-        println!("2. Create Sub-Account");
-        println!("3. Transfer between sub-accounts");
-        println!("4. Transfer money to someone else");
-        println!("5. Get balance");
-        println!("6. Get transactions");
+        println!("1. Create Sub-Account");
+        println!("2. Transfer between sub-accounts");
+        println!("3. Transfer money to someone else");
+        println!("4. Get balance");
+        println!("5. Get transactions");
+        println!("6. Add money to sub-account");
         println!("7. Exit");
         
         // Get the user's choice
@@ -340,12 +292,12 @@ fn main() {
         let choice = choice.trim();
 
         match choice {
-            "1" => create_account_flow(&mut conn),
-            "2" => create_sub_account_flow(&mut conn),
-            "3" => transfer_between_sub_accounts_flow(&mut conn),
-            "4" => transfer_money_to_someone_else_flow(&mut conn),
-            "5" => get_balance_flow(&mut conn),
-            "6" => get_transactions_flow(&mut conn),
+            "1" => create_sub_account_flow(conn, account_id),
+            "2" => transfer_between_sub_accounts_flow(conn, account_id),
+            "3" => transfer_money_to_someone_else_flow(conn, account_id),
+            "4" => get_balance_flow(conn, account_id),
+            "5" => get_transactions_flow(conn, account_id),
+            "6" => add_money_to_sub_account_flow(conn, account_id),
             "7" => {
                 println!("Exiting... Goodbye!");
                 break;
@@ -353,75 +305,86 @@ fn main() {
             _ => println!("Invalid choice, please try again."),
         }
     }
-
-    // // Create or get an account (if "John Doe" exists, it will return the existing one)
-    // let account_id_temp1 = create_account(&mut conn, "John Doe");
-    // let account_id_temp1 = account_id_temp1.unwrap();
-    // let account_id_temp2 = create_account(&mut conn, "Charchit Aggarwal");
-    // let account_id_temp2 = account_id_temp2.unwrap();
-
-
-    // // Create or get a sub-account with the specified currency for this account
-    // let sub_account_id_usd1 = create_sub_account(&mut conn, account_id_temp1.id, "USD", 1000.0).expect("Failed to create sub-account");
-    // let sub_account_id_usd2 = create_sub_account(&mut conn, account_id_temp2.id, "USD", 1000.0).expect("Failed to create sub-account");
-
-    // // Create another sub-account for the same account with a different currency
-    // let sub_account_id_eur = create_sub_account(&mut conn, account_id_temp1.id, "EUR", 500.0);
-
-    // // Test case 1: Successful transaction
-    // match commit_transaction(&mut conn, account_id_temp1.id, account_id_temp2.id, 100.0, "USD") {
-    //     Ok(transaction) => println!("Transaction successful: {:#?}", transaction),
-    //     Err(e) => println!("Transaction failed: {:?}", e),
-    // }
-    // let balance_temp1 = get_balance(&mut conn, account_id_temp1.id, "USD").expect("Failed to get balance");
-    // println!("Balance of account_id_temp1: {}", balance_temp1);
-    // let balance_temp2 = get_balance(&mut conn, account_id_temp2.id, "USD").expect("Failed to get balance");
-    // println!("Balance of account_id_temp2: {}", balance_temp2);
-    
-    // // Test case 2: Insufficient balance
-    // match commit_transaction(&mut conn, account_id_temp1.id, account_id_temp2.id, 2000.0, "USD") {
-    //     Ok(transaction) => println!("Transaction successful but should fail: {:#?}", transaction),
-    //     Err(e) => println!("Transaction failed as expected (insufficient funds): {:?}", e),
-    // }
-    // let balance_temp1 = get_balance(&mut conn, account_id_temp1.id, "USD").expect("Failed to get balance");
-    // println!("Balance of account_id_temp1: {}", balance_temp1);
-    // let balance_temp2 = get_balance(&mut conn, account_id_temp2.id, "USD").expect("Failed to get balance");
-    // println!("Balance of account_id_temp2: {}", balance_temp2);
-    
-    // // Test case 3: Invalid currency (EUR account doesn't exist for account_id_temp2)
-    // match commit_transaction(&mut conn, account_id_temp1.id, account_id_temp2.id, 100.0, "EUR") {
-    //     Ok(transaction) => println!("Transaction successful but should fail: {:#?}", transaction),
-    //     Err(e) => println!("Transaction failed as expected (invalid currency): {:?}", e),
-    // }
-    // let balance_temp1 = get_balance(&mut conn, account_id_temp1.id, "USD").expect("Failed to get balance");
-    // println!("Balance of account_id_temp1: {}", balance_temp1);
-    // let balance_temp2 = get_balance(&mut conn, account_id_temp2.id, "USD").expect("Failed to get balance");
-    // println!("Balance of account_id_temp2: {}", balance_temp2);
-    
-    // // Test case 4: Transfer between same currency accounts
-    // match commit_transaction(&mut conn, account_id_temp2.id, account_id_temp1.id, 50.0, "USD") {
-    //     Ok(transaction) => println!("Transaction successful: {:#?}", transaction),
-    //     Err(e) => println!("Transaction failed: {:?}", e),
-    // }
-    // let balance_temp1 = get_balance(&mut conn, account_id_temp1.id, "USD").expect("Failed to get balance");
-    // println!("Balance of account_id_temp1: {}", balance_temp1);
-    // let balance_temp2 = get_balance(&mut conn, account_id_temp2.id, "USD").expect("Failed to get balance");
-    // println!("Balance of account_id_temp2: {}", balance_temp2);
-
-
-    // let balance_temp1 = get_balance(&mut conn, account_id_temp1.id, "USD").expect("Failed to get balance");
-    // println!("Balance of account_id_temp1: {}", balance_temp1);
-    // let balance_temp2 = get_balance(&mut conn, account_id_temp1.id, "EUR").expect("Failed to get balance");
-    // println!("Balance of account_id_temp2: {}", balance_temp2);
-    // match transfer_between_sub_accounts(&mut conn, account_id_temp1.id, "USD", "EUR", 100.0) {
-    //     Ok(transaction) => println!("Transaction successful: {:#?}", transaction),
-    //     Err(e) => println!("Transaction failed: {:?}", e),
-    // }
-    // let balance_temp1 = get_balance(&mut conn, account_id_temp1.id, "USD").expect("Failed to get balance");
-    // println!("Balance of account_id_temp1: {}", balance_temp1);
-    // let balance_temp2 = get_balance(&mut conn, account_id_temp1.id, "EUR").expect("Failed to get balance");
-    // println!("Balance of account_id_temp2: {}", balance_temp2);
-
-
 }
 
+pub fn admin_flow(conn: &mut diesel::PgConnection) {
+    loop {
+        println!("=== ADMIN MODE ===");
+        println!("1. Get pending transactions");
+        println!("2. Approve pending transaction");
+        println!("3. Get all accounts");
+        println!("4. Exit");
+        let mut choice = String::new();
+        io::stdin().read_line(&mut choice).unwrap();
+        let choice = choice.trim();
+        match choice {
+            "1" => get_pending_transactions_flow(conn),
+            "2" => approve_pending_transaction_flow(conn),
+            "3" => get_accounts_flow(conn),
+            "4" => break,
+            _ => println!("Invalid choice, please try again."),
+        }
+    }
+}
+
+pub fn approve_pending_transaction_flow(conn: &mut diesel::PgConnection) {
+    let mut pending_transaction_id = String::new();
+    print!("Enter the ID of the pending transaction to approve: ");
+    io::stdout().flush().unwrap();
+    io::stdin().read_line(&mut pending_transaction_id).unwrap();
+    let pending_transaction_id: Uuid = match pending_transaction_id.trim().parse() {
+        Ok(id) => id,
+        Err(_) => {
+            println!("Invalid pending transaction ID. Please enter a valid number.");
+            return;
+        }
+    };
+    approve_pending_transaction(conn, pending_transaction_id);
+}
+
+pub fn add_money_to_sub_account_flow(conn: &mut diesel::PgConnection, account_id: Uuid) {
+    let mut amount = String::new();
+    print!("Enter the amount to add: ");
+    io::stdout().flush().unwrap();
+    io::stdin().read_line(&mut amount).unwrap();
+    let amount: f64 = match amount.trim().parse() {
+        Ok(a) => a,
+        Err(_) => {
+            println!("Invalid amount. Please enter a valid number.");
+            return;
+        }
+    };
+    let mut currency = String::new();
+    print!("Enter the currency to add: ");
+    io::stdout().flush().unwrap();
+    io::stdin().read_line(&mut currency).unwrap();
+    let currency = currency.trim();
+
+    add_money_to_sub_account(conn, account_id, amount, currency);
+}
+
+
+fn main() {
+    dotenv().ok();
+    let mut conn = establish_connection();
+    loop {
+        println!("Welcome to the Account Manager");
+        println!("1. Login");
+        println!("2. Create Account");
+        println!("3. Get all accounts");
+        println!("4. Exit");
+        println!("5. Admin Mode");
+        println!("Enter your choice (1-5): ");
+        let mut choice = String::new();
+        io::stdin().read_line(&mut choice).unwrap();
+        let choice = choice.trim();
+        match choice {
+            "1" => login_flow(&mut conn),
+            "2" => create_account_flow(&mut conn),  
+            "3" => get_accounts_flow(&mut conn),
+            "4" => break,
+            "5" => admin_flow(&mut conn),
+            _ => println!("Invalid choice, please try again."),
+        }   
+    }
+}

@@ -6,9 +6,6 @@ use std::env;
 use crate::models::{Account, SubAccount, Transaction, NewTransaction};
 
 
-
-
-
 pub fn establish_connection() -> PgConnection {
     dotenv().ok();
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
@@ -82,3 +79,7 @@ pub fn check_duplicate_account(conn: &mut PgConnection, holder_name: &str) -> bo
 }
 
 
+pub fn get_accounts(conn: &mut PgConnection) -> Result<Vec<Account>, diesel::result::Error> {
+    use crate::schema::accounts::dsl::*;
+    accounts.load::<Account>(conn)
+}

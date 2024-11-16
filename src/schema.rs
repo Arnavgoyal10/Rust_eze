@@ -10,6 +10,16 @@ diesel::table! {
 }
 
 diesel::table! {
+    pending_transactions (id) {
+        id -> Uuid,
+        account_id_to_add -> Nullable<Uuid>,
+        amount -> Float8,
+        transfer_currency -> Varchar,
+        transaction_date -> Timestamp,
+    }
+}
+
+diesel::table! {
     records (transaction_id) {
         transaction_id -> Uuid,
         account_id_from -> Nullable<Uuid>,
@@ -43,10 +53,12 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(pending_transactions -> sub_accounts (account_id_to_add));
 diesel::joinable!(sub_accounts -> accounts (account_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     accounts,
+    pending_transactions,
     records,
     sub_accounts,
     transactions,

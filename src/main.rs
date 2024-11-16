@@ -6,8 +6,8 @@ mod moneytransfer;
 // use diesel::pg::PgConnection;
 use dotenvy::dotenv;
 // use std::env;
-use crate::database::{establish_connection, create_account, create_sub_account, get_accounts};
-use crate::moneytransfer::{transfer_between_sub_accounts, get_balance, transfer_money, get_transactions};
+use crate::database::{establish_connection, create_account, create_sub_account, get_accounts, add_username_password, validate_username_password};
+use crate::moneytransfer::{transfer_between_sub_accounts, get_balance, transfer_money, get_transactions, add_money_to_sub_account, approve_pending_transaction, get_pending_transactions};
 use clap::{Parser, Subcommand};
 use regex::Regex;
 use std::io::{self, Write};
@@ -67,13 +67,36 @@ fn create_account_flow(conn: &mut diesel::PgConnection) {
 
     if validate_account_name(account_name) {
         println!("Creating account: {}", account_name);
+        //if account is created, ask for username and password and get account_id of created account and add it to username_password table
         match create_account(conn, account_name) {
-            Ok(account) => println!("Account created: {:#?}", account),
-            Err(e) => println!("Failed to create account: {:?}", e),
+            Ok(account) => {
+                let account_id = account.id;
+                let mut username = String::new();
+                print!("Enter your username: ");
+                io::stdout().flush().unwrap();
+                io::stdin().read_line(&mut username).unwrap();
+                let username = username.trim();
+
+                let mut password = String::new();
+                print!("Enter your password: ");
+                io::stdout().flush().unwrap();
+                io::stdin().read_line(&mut password).unwrap();
+                let password = password.trim();
+
+
+                match add_username_password(conn, &username, &password, account_id) {
+                    Ok(_) => println!("Username and password added"),
+                    Err(e) => println!("Failed to add username and password: {:?}", e),
+                }
+            }
+            Err(e) => println!("Failed to create account: {:?}", e),    
         }
+        
     } else {
         println!("Invalid account name. It must contain only letters and numbers.");
     }
+
+    
 }
 
 fn create_sub_account_flow(conn: &mut diesel::PgConnection, subaccount_insert_account_id: Uuid) {
@@ -255,75 +278,99 @@ pub fn validate_account_id(account_id: Uuid, conn: &mut diesel::PgConnection) ->
     }
 }
 
-pub fn login_flow(conn: &mut diesel::PgConnection) {
-    let mut account_id = String::new();
-    print!("Enter your account ID: ");
-    io::stdout().flush().unwrap();
-    io::stdin().read_line(&mut account_id).unwrap();
-    let account_id: Uuid = match account_id.trim().parse() {
-        Ok(id) => id,
-        Err(_) => {
-            println!("Invalid account ID. Please enter a valid number.");
-            return;
-        }
-    };
-    // If account is not found, return
-    if !validate_account_id(account_id, conn) {
-        println!("Account not found");
-        return;
+pub fn get_pending_transactions_flow(conn: &mut diesel::PgConnection) {
+    match get_pending_transactions(conn) {
+        Ok(pending_transactions) => println!("Pending transactions: {:#?}", pending_transactions),
+        Err(e) => println!("Failed to get pending transactions: {:?}", e),
     }
+}
 
-    loop {
-        // Start the CLI loop by asking for user input
-        println!("What can we do for you?");
-        println!("1. Create Sub-Account");
-        println!("2. Transfer between sub-accounts");
-        println!("3. Transfer money to someone else");
-        println!("4. Get balance");
-        println!("5. Get transactions");
-        println!("6. Add money to sub-account");
-        println!("7. Exit");
-        
-        // Get the user's choice
-        let mut choice = String::new();
-        print!("Enter your choice (1-7): ");
-        io::stdout().flush().unwrap();
-        io::stdin().read_line(&mut choice).unwrap();
-        let choice = choice.trim();
+pub fn login_flow(conn: &mut diesel::PgConnection) {
+    let mut username = String::new();
+    let mut password = String::new();   
+    print!("Enter your username: ");
+    io::stdout().flush().unwrap();
+    io::stdin().read_line(&mut username).unwrap();
+    let username = username.trim();
+    print!("Enter your password: ");
+    io::stdout().flush().unwrap();
+    io::stdin().read_line(&mut password).unwrap();
+    let password = password.trim();
 
-        match choice {
-            "1" => create_sub_account_flow(conn, account_id),
-            "2" => transfer_between_sub_accounts_flow(conn, account_id),
-            "3" => transfer_money_to_someone_else_flow(conn, account_id),
-            "4" => get_balance_flow(conn, account_id),
-            "5" => get_transactions_flow(conn, account_id),
-            "6" => add_money_to_sub_account_flow(conn, account_id),
-            "7" => {
-                println!("Exiting... Goodbye!");
-                break;
+    // Get the account_id and handle the Option
+    match validate_username_password(conn, &username, &password) {
+        Some(account_id) => {
+            // Start the CLI loop
+            loop {
+                println!("What can we do for you?");
+                println!("1. Create Sub-Account");
+                println!("2. Transfer between sub-accounts");
+                println!("3. Transfer money to someone else");
+                println!("4. Get balance");
+                println!("5. Get transactions");
+                println!("6. Add money to sub-account");
+                println!("7. Exit");
+                
+                let mut choice = String::new();
+                print!("Enter your choice (1-7): ");
+                io::stdout().flush().unwrap();
+                io::stdin().read_line(&mut choice).unwrap();
+                let choice = choice.trim();
+
+                match choice {
+                    "1" => create_sub_account_flow(conn, account_id),
+                    "2" => transfer_between_sub_accounts_flow(conn, account_id),
+                    "3" => transfer_money_to_someone_else_flow(conn, account_id),
+                    "4" => get_balance_flow(conn, account_id),
+                    "5" => get_transactions_flow(conn, account_id),
+                    "6" => add_money_to_sub_account_flow(conn, account_id),
+                    "7" => {
+                        println!("Exiting... Goodbye!");
+                        break;
+                    }
+                    _ => println!("Invalid choice, please try again."),
+                }
             }
-            _ => println!("Invalid choice, please try again."),
-        }
+        },
+        None => println!("Invalid username or password"),
     }
 }
 
 pub fn admin_flow(conn: &mut diesel::PgConnection) {
-    loop {
-        println!("=== ADMIN MODE ===");
-        println!("1. Get pending transactions");
-        println!("2. Approve pending transaction");
-        println!("3. Get all accounts");
-        println!("4. Exit");
-        let mut choice = String::new();
-        io::stdin().read_line(&mut choice).unwrap();
-        let choice = choice.trim();
-        match choice {
-            "1" => get_pending_transactions_flow(conn),
-            "2" => approve_pending_transaction_flow(conn),
-            "3" => get_accounts_flow(conn),
-            "4" => break,
-            _ => println!("Invalid choice, please try again."),
+    let mut username = String::new();
+    let mut password = String::new();
+    print!("Enter your username: ");
+    io::stdout().flush().unwrap();
+    io::stdin().read_line(&mut username).unwrap();
+    let username = username.trim();
+    print!("Enter your password: ");
+    io::stdout().flush().unwrap();
+    io::stdin().read_line(&mut password).unwrap();
+    let password = password.trim();
+
+    if username == "admin" && password == "6969" {
+        loop {
+            println!("=== ADMIN MODE ===");
+            println!("1. Get pending transactions");
+            println!("2. Approve pending transaction");
+            println!("3. Get all accounts");
+            println!("4. Exit");
+            let mut choice = String::new();
+            io::stdin().read_line(&mut choice).unwrap();
+            let choice = choice.trim();
+            match choice {
+                "1" => get_pending_transactions_flow(conn),
+                "2" => approve_pending_transaction_flow(conn),
+                "3" => get_accounts_flow(conn),
+                "4" => {
+                    println!("Exiting... Goodbye!");
+                    break;
+                }
+                _ => println!("Invalid choice, please try again."),
+            }
         }
+    } else {
+        println!("Invalid username or password");
     }
 }
 
@@ -339,7 +386,11 @@ pub fn approve_pending_transaction_flow(conn: &mut diesel::PgConnection) {
             return;
         }
     };
-    approve_pending_transaction(conn, pending_transaction_id);
+    
+    match approve_pending_transaction(conn, pending_transaction_id) {
+        Ok(_) => println!("Pending transaction approved"),
+        Err(e) => println!("Failed to approve pending transaction: {:?}", e),
+    }
 }
 
 pub fn add_money_to_sub_account_flow(conn: &mut diesel::PgConnection, account_id: Uuid) {
@@ -359,8 +410,10 @@ pub fn add_money_to_sub_account_flow(conn: &mut diesel::PgConnection, account_id
     io::stdout().flush().unwrap();
     io::stdin().read_line(&mut currency).unwrap();
     let currency = currency.trim();
-
-    add_money_to_sub_account(conn, account_id, amount, currency);
+    match add_money_to_sub_account(conn, account_id, amount, currency) {
+        Ok(_) => println!("Money added to sub-account"),
+        Err(e) => println!("Failed to add money to sub-account: {:?}", e),
+    }
 }
 
 
@@ -372,8 +425,8 @@ fn main() {
         println!("1. Login");
         println!("2. Create Account");
         println!("3. Get all accounts");
-        println!("4. Exit");
-        println!("5. Admin Mode");
+        println!("4. Admin Mode");
+        println!("5. Exit");
         println!("Enter your choice (1-5): ");
         let mut choice = String::new();
         io::stdin().read_line(&mut choice).unwrap();
@@ -382,8 +435,11 @@ fn main() {
             "1" => login_flow(&mut conn),
             "2" => create_account_flow(&mut conn),  
             "3" => get_accounts_flow(&mut conn),
-            "4" => break,
-            "5" => admin_flow(&mut conn),
+            "4" => admin_flow(&mut conn),
+            "5" => {
+                println!("Exiting... Goodbye!");
+                break;
+            }
             _ => println!("Invalid choice, please try again."),
         }   
     }

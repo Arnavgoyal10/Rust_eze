@@ -53,8 +53,17 @@ diesel::table! {
     }
 }
 
-diesel::joinable!(pending_transactions -> sub_accounts (account_id_to_add));
+diesel::table! {
+    username_password (username) {
+        username -> Varchar,
+        passwd -> Varchar,
+        account_id -> Nullable<Uuid>,
+    }
+}
+
+diesel::joinable!(pending_transactions -> accounts (account_id_to_add));
 diesel::joinable!(sub_accounts -> accounts (account_id));
+diesel::joinable!(username_password -> accounts (account_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     accounts,
@@ -62,4 +71,5 @@ diesel::allow_tables_to_appear_in_same_query!(
     records,
     sub_accounts,
     transactions,
+    username_password,
 );

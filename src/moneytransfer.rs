@@ -6,6 +6,8 @@ use reqwest::blocking::Client;
 use serde::Deserialize;
 use crate::models::PendingTransaction;
 use crate::models::NewPendingTransaction;
+use crate::models::ADMIN_ACCOUNT_ID;
+use crate::schema::pending_transactions::dsl::*;
 
 #[derive(Deserialize)]
 struct ExchangeRateResponse {
@@ -183,15 +185,16 @@ pub fn get_transactions(
 
 pub fn add_money_to_sub_account(
     conn: &mut PgConnection,
-    account_id_to_add: Uuid,
+    account_id_to_add_here: Uuid,
     amount_to_add: f64,
-    transfer_currency: &str
+    transfer_currency_to_add: &str
 ) -> Result<PendingTransaction, diesel::result::Error> {
     let new_pending_transaction = NewPendingTransaction {
-        account_id_to_add: Some(account_id_to_add),
+        account_id_to_add: Some(account_id_to_add_here),
         amount: amount_to_add,
-        transfer_currency: transfer_currency,
+        transfer_currency: transfer_currency_to_add,
     };
+    use crate::schema::pending_transactions::dsl::*;
 
     diesel::insert_into(pending_transactions)
         .values(&new_pending_transaction)
@@ -212,10 +215,10 @@ pub fn approve_pending_transaction(
     conn: &mut PgConnection,
     pending_transaction_id: Uuid
 ) -> Result<(), diesel::result::Error> {
-
+    use crate::schema::pending_transactions::dsl::*;
     //transfer money from Adminaccount to sub-account
     let pending_transaction = pending_transactions.find(pending_transaction_id).first::<PendingTransaction>(conn)?;
-    transfer_money(conn, models::ADMIN_ACCOUNT_ID, pending_transaction.account_id_to_add.unwrap(), pending_transaction.amount, &pending_transaction.transfer_currency)?;
+    transfer_money(conn, ADMIN_ACCOUNT_ID, pending_transaction.account_id_to_add.unwrap(), pending_transaction.amount, &pending_transaction.transfer_currency)?;
 
 
     diesel::delete(pending_transactions.find(pending_transaction_id))

@@ -1,10 +1,18 @@
 -- Your SQL goes here
+
 -- Create accounts table
 CREATE TABLE accounts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     account_holder_name VARCHAR NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     status VARCHAR NOT NULL DEFAULT 'active'
+);
+
+--Create USERNAME and PASSWORD table 
+CREATE TABLE username_password (
+    username VARCHAR PRIMARY KEY,
+    passwd VARCHAR NOT NULL,
+    account_id UUID REFERENCES accounts(id) ON DELETE CASCADE
 );
 
 -- Create sub_accounts table
@@ -29,7 +37,7 @@ CREATE TABLE transactions (
 --Create pending transactions table
 CREATE TABLE pending_transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    account_id_to_add UUID REFERENCES sub_accounts(id) ON DELETE CASCADE,
+    account_id_to_add UUID REFERENCES accounts(id) ON DELETE CASCADE,
     amount DOUBLE PRECISION NOT NULL,
     transfer_currency VARCHAR NOT NULL,
     transaction_date TIMESTAMP NOT NULL DEFAULT NOW()

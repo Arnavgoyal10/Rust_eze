@@ -3,7 +3,7 @@ use diesel::pg::PgConnection;
 use uuid::Uuid;
 use dotenvy::dotenv;
 use std::env;
-use crate::models::{Account, SubAccount, Transaction, NewTransaction};
+use crate::models::{Account, SubAccount, Transaction, NewTransaction, UsernamePassword, NewUsernamePassword};
 
 
 pub fn establish_connection() -> PgConnection {
@@ -82,4 +82,31 @@ pub fn check_duplicate_account(conn: &mut PgConnection, holder_name: &str) -> bo
 pub fn get_accounts(conn: &mut PgConnection) -> Result<Vec<Account>, diesel::result::Error> {
     use crate::schema::accounts::dsl::*;
     accounts.load::<Account>(conn)
+}
+
+pub fn validate_username_password(conn: &mut PgConnection, username_to_validate: &str, password_to_validate: &str) -> Option<Uuid> {
+
+    // return account id if username and password are correct
+    use crate::schema::username_password::dsl::*;
+    let result = username_password.filter(username.eq(username_to_validate)).filter(passwd.eq(password_to_validate)).load::<UsernamePassword>(conn).expect("Error loading username password");
+    if result.len() > 0 {
+        return Some(result[0].account_id.unwrap());
+    } else {
+        return None;
+    }
+}
+
+pub fn add_username_password(conn: &mut PgConnection, username_to_add: &str, password_to_add: &str, account_id_to_add: Uuid) -> Result<UsernamePassword, diesel::result::Error> {
+    use crate::schema::username_password::dsl::*;
+    let new_username_password = crate::models::NewUsernamePassword {
+        username: username_to_add,
+        passwd: password_to_add,
+        account_id: Some(account_id_to_add),
+    };
+
+    Ok(diesel::insert_into(username_password)
+        .values(&new_username_password)
+        .returning(UsernamePassword::as_returning())
+        .get_result(conn)
+        .expect("Error saving new username password"))
 }

@@ -5,6 +5,7 @@ use crate::schema::accounts;
 use crate::schema::sub_accounts;
 use crate::schema::transactions;
 use crate::schema::pending_transactions;
+use crate::schema::username_password;
 
 pub const ADMIN_ACCOUNT_ID: Uuid = Uuid::from_u128(0);
 
@@ -66,8 +67,7 @@ pub struct NewTransaction<'a> {
 #[diesel(table_name = pending_transactions)]
 pub struct PendingTransaction {
     pub id: Uuid,
-    pub sub_account_id_from: Option<Uuid>,
-    pub sub_account_id_to: Option<Uuid>,
+    pub account_id_to_add: Option<Uuid>,
     pub amount: f64,
     pub transfer_currency: String,
     pub transaction_date: NaiveDateTime,
@@ -76,8 +76,23 @@ pub struct PendingTransaction {
 #[derive(Insertable)]
 #[diesel(table_name = pending_transactions)]
 pub struct NewPendingTransaction<'a> {
-    pub sub_account_id_from: Option<Uuid>,
-    pub sub_account_id_to: Option<Uuid>,
+    pub account_id_to_add: Option<Uuid>,
     pub amount: f64,
     pub transfer_currency: &'a str,
+}
+
+#[derive(Queryable, Debug, QueryableByName, Selectable)]
+#[diesel(table_name = username_password)]
+pub struct UsernamePassword {
+    pub username: String,
+    pub passwd: String,
+    pub account_id: Option<Uuid>,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = username_password)]
+pub struct NewUsernamePassword<'a> {
+    pub username: &'a str,
+    pub passwd: &'a str,
+    pub account_id: Option<Uuid>,
 }

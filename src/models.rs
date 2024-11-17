@@ -86,6 +86,7 @@ pub struct NewPendingTransaction<'a> {
 pub struct UsernamePassword {
     pub username: String,
     pub passwd: String,
+    pub totp_secret: Option<String>,
     pub account_id: Option<Uuid>,
 }
 
@@ -94,5 +95,6 @@ pub struct UsernamePassword {
 pub struct NewUsernamePassword<'a> {
     pub username: &'a str,
     pub passwd: &'a str,
+    pub totp_secret: Option<&'a str>,
     pub account_id: Option<Uuid>,
 }

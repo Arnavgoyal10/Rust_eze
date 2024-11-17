@@ -2,6 +2,7 @@ mod models;
 mod schema;
 mod database;
 mod moneytransfer;
+mod otp_implement;
 
 // use diesel::pg::PgConnection;
 use dotenvy::dotenv;
@@ -12,6 +13,7 @@ use clap::{Parser, Subcommand};
 use regex::Regex;
 use std::io::{self, Write};
 use uuid::Uuid;
+use crate::otp_implement::{generate_totp_secret, verify_totp};
 
 #[derive(Parser)]
 #[command(name = "Account Manager")]

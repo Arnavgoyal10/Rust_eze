@@ -4,6 +4,7 @@ use uuid::Uuid;
 use dotenvy::dotenv;
 use std::env;
 use crate::models::{Account, SubAccount, Transaction, NewTransaction, UsernamePassword, NewUsernamePassword};
+use crate::otp_implement::{generate_totp_secret, verify_totp_flow};
 
 
 pub fn establish_connection() -> PgConnection {
@@ -84,13 +85,19 @@ pub fn get_accounts(conn: &mut PgConnection) -> Result<Vec<Account>, diesel::res
     accounts.load::<Account>(conn)
 }
 
+
+
 pub fn validate_username_password(conn: &mut PgConnection, username_to_validate: &str, password_to_validate: &str) -> Option<Uuid> {
 
     // return account id if username and password are correct
     use crate::schema::username_password::dsl::*;
     let result = username_password.filter(username.eq(username_to_validate)).filter(passwd.eq(password_to_validate)).load::<UsernamePassword>(conn).expect("Error loading username password");
     if result.len() > 0 {
-        return Some(result[0].account_id.unwrap());
+        if verify_totp_flow(conn, username_to_validate, password_to_validate).unwrap() {
+            return Some(result[0].account_id.unwrap());
+        } else {
+            return None;
+        }
     } else {
         return None;
     }
@@ -98,11 +105,15 @@ pub fn validate_username_password(conn: &mut PgConnection, username_to_validate:
 
 pub fn add_username_password(conn: &mut PgConnection, username_to_add: &str, password_to_add: &str, account_id_to_add: Uuid) -> Result<UsernamePassword, diesel::result::Error> {
     use crate::schema::username_password::dsl::*;
+    let totp_secret_to_add = generate_totp_secret().ok();
     let new_username_password = crate::models::NewUsernamePassword {
         username: username_to_add,
         passwd: password_to_add,
+        totp_secret: totp_secret_to_add.as_deref(),
         account_id: Some(account_id_to_add),
     };
+
+    println!("totp_secret_key: {:?}", totp_secret_to_add);
 
     // Check if username already exists
     let existing_username = username_password

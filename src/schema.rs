@@ -57,6 +57,7 @@ diesel::table! {
     username_password (username) {
         username -> Varchar,
         passwd -> Varchar,
+        totp_secret -> Nullable<Varchar>,
         account_id -> Nullable<Uuid>,
     }
 }

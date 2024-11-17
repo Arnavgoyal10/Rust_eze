@@ -12,6 +12,7 @@ CREATE TABLE accounts (
 CREATE TABLE username_password (
     username VARCHAR PRIMARY KEY,
     passwd VARCHAR NOT NULL,
+    totp_secret VARCHAR,
     account_id UUID REFERENCES accounts(id) ON DELETE CASCADE
 );
 

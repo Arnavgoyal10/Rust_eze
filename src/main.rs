@@ -50,7 +50,13 @@ fn validate_account_name(name: &str) -> bool {
 
 fn validate_currency(currency: &str) -> bool {
     let re = Regex::new(r"^[A-Z]{3}$").unwrap();
-    re.is_match(currency)
+    let valid_currencies = vec!["USD", "EUR", "GBP", "JPY", "INR", "SGD", "EUR", "AUD"];
+    if re.is_match(currency) {
+        if valid_currencies.contains(&currency) {
+            return true;
+        }
+    }
+    false
 }
 
 fn validate_amount(amount: f64) -> bool {

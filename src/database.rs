@@ -104,6 +104,16 @@ pub fn add_username_password(conn: &mut PgConnection, username_to_add: &str, pas
         account_id: Some(account_id_to_add),
     };
 
+    // Check if username already exists
+    let existing_username = username_password
+    .filter(username.eq(username_to_add))
+    .load::<UsernamePassword>(conn)
+    .expect("Error checking username");
+    
+    if !existing_username.is_empty() {
+        return Err(diesel::result::Error::RollbackTransaction);
+    }
+
     Ok(diesel::insert_into(username_password)
         .values(&new_username_password)
         .returning(UsernamePassword::as_returning())

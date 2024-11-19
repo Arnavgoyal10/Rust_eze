@@ -60,6 +60,6 @@ VALUES
     ('00000000-0000-0000-0000-000000000000', 'AUD', 999999999999.99),
     ('00000000-0000-0000-0000-000000000000', 'EUR', 999999999999.99);
 
--- Insert admin username and password
+-- Insert admin username and password (using bcrypt hash of '6969')
 INSERT INTO username_password (username, passwd, account_id)
-VALUES ('admin', '6969', '00000000-0000-0000-0000-000000000000');
+VALUES ('admin', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewYpwBAM.qYLQw8y', '00000000-0000-0000-0000-000000000000');//password is 6969

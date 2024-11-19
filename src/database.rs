@@ -5,6 +5,7 @@ use dotenvy::dotenv;
 use std::env;
 use crate::models::{Account, SubAccount, Transaction, NewTransaction, UsernamePassword, NewUsernamePassword};
 use crate::otp_implement::{generate_totp_secret, verify_totp_flow};
+use bcrypt::{hash, verify, DEFAULT_COST};
 
 
 pub fn establish_connection() -> PgConnection {
@@ -88,32 +89,48 @@ pub fn get_accounts(conn: &mut PgConnection) -> Result<Vec<Account>, diesel::res
 
 
 pub fn validate_username_password(conn: &mut PgConnection, username_to_validate: &str, password_to_validate: &str) -> Option<Uuid> {
-
-    // return account id if username and password are correct
     use crate::schema::username_password::dsl::*;
-    let result = username_password.filter(username.eq(username_to_validate)).filter(passwd.eq(password_to_validate)).load::<UsernamePassword>(conn).expect("Error loading username password");
-    if result.len() > 0 {
-        if verify_totp_flow(conn, username_to_validate, password_to_validate).unwrap() {
-            return Some(result[0].account_id.unwrap());
-        } else {
-            return None;
+    
+    // First, get the user record by username only
+    let result = username_password
+        .filter(username.eq(username_to_validate))
+        .load::<UsernamePassword>(conn)
+        .expect("Error loading username password");
+
+    if let Some(user) = result.get(0) {
+        // Verify the password directly against stored hash
+        if verify(password_to_validate, &user.passwd)
+            .unwrap_or(false) 
+        {
+            // Only verify TOTP if password is correct
+            if verify_totp_flow(conn, username_to_validate, password_to_validate).unwrap() {
+                return Some(user.account_id.unwrap());
+            }
         }
-    } else {
-        return None;
     }
+    None
 }
 
 pub fn add_username_password(conn: &mut PgConnection, username_to_add: &str, password_to_add: &str, account_id_to_add: Uuid) -> Result<UsernamePassword, diesel::result::Error> {
     use crate::schema::username_password::dsl::*;
+    
+    // Hash the password
+    let hashed_password = hash(password_to_add.as_bytes(), DEFAULT_COST)
+        .map_err(|_| diesel::result::Error::RollbackTransaction)?;
+    
     let totp_secret_to_add = generate_totp_secret().ok();
+    if totp_secret_to_add.is_none() {
+        return Err(diesel::result::Error::RollbackTransaction);
+    }
     let new_username_password = crate::models::NewUsernamePassword {
         username: username_to_add,
-        passwd: password_to_add,
+        passwd: &hashed_password,  // Use the hashed password
         totp_secret: totp_secret_to_add.as_deref(),
         account_id: Some(account_id_to_add),
     };
 
     println!("totp_secret_key: {:?}", totp_secret_to_add);
+    
 
     // Check if username already exists
     let existing_username = username_password

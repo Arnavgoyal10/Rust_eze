@@ -19,6 +19,7 @@ A command-line banking system built in Rust that allows users to manage accounts
 - Security
   - Password hashing using bcrypt
   - Username/password authentication
+  - OTP verification
   - Admin interface with separate credentials
 
 - Multi-Currency Support
@@ -28,7 +29,11 @@ A command-line banking system built in Rust that allows users to manage accounts
 
 ## Getting Started
 
-1. Install Dependencies
+1. Clone the repository
+    ```bash
+    git clone https://github.com/Arnavgoyal10/Rust_eze.git
+    ```
+2. Install Dependencies
    - Ensure you have Rust and Cargo installed
    - Install PostgreSQL database
    - Install Docker
@@ -84,6 +89,7 @@ Built using:
 ## Security Notes
 
 - Passwords are hashed before storage
+- OTP is generated using the TOTP algorithm
 - Input validation for all user inputs
 - Date validation for scheduled transactions
 - Currency code validation

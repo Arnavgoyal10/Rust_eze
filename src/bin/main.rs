@@ -1,27 +1,14 @@
-mod models;
-mod schema;
-mod database;
-mod moneytransfer;
-mod otp_implement;
-mod recurringpayments;
-
-
 // use diesel::pg::PgConnection;
 use dotenvy::dotenv;
 // use std::env;
-use crate::database::{establish_connection, create_account, create_sub_account, get_accounts, add_username_password, validate_username_password, get_scheduled_transactions, add_scheduled_transaction};
-use crate::moneytransfer::{transfer_between_sub_accounts, get_balance, transfer_money, get_transactions, add_money_to_sub_account, approve_pending_transaction, get_pending_transactions};
+use rust_eze::database::{establish_connection, create_account, create_sub_account, get_accounts, add_username_password, validate_username_password, get_scheduled_transactions, add_scheduled_transaction, delete_scheduled_transaction, view_scheduled_transactions};
+use rust_eze::moneytransfer::{transfer_between_sub_accounts, get_balance, transfer_money, get_transactions, add_money_to_sub_account, approve_pending_transaction, get_pending_transactions};
 use clap::{Parser, Subcommand};
 use regex::Regex;
 use std::io::{self, Write};
 use uuid::Uuid;
 use chrono::Local;
 use chrono::NaiveDateTime;
-use tokio::time::{sleep, Duration};
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use crate::recurringpayments::{process_scheduled_transactions, log_to_file};
-use rpassword::read_password;
 #[derive(Parser)]
 #[command(name = "Account Manager")]
 #[command(about = "A CLI to create accounts and sub-accounts", long_about = None)]
@@ -115,7 +102,6 @@ fn create_account_flow(conn: &mut diesel::PgConnection) {
 fn create_sub_account_flow(conn: &mut diesel::PgConnection, subaccount_insert_account_id: Uuid) {
     // Sub-account creation flow
     let mut currency = String::new();
-    let mut balance = String::new();
 
     // Get currency input
     print!("Enter currency (e.g., USD, EUR): ");
@@ -282,8 +268,8 @@ pub fn get_accounts_flow(conn: &mut diesel::PgConnection) {
 
 pub fn validate_account_id(account_id: Uuid, conn: &mut diesel::PgConnection) -> bool {
     use diesel::prelude::*;
-    use crate::schema::accounts::dsl::*;
-    use crate::models::Account;
+    use rust_eze::schema::accounts::dsl::*;
+    use rust_eze::models::Account;
     // Use diesel's query interface instead of a non-existent find method
     match accounts.find(account_id).first::<Account>(conn) {
         Ok(_) => true,
@@ -337,14 +323,23 @@ pub fn add_scheduled_transaction_flow(conn: &mut diesel::PgConnection, from_acco
         return;
     }
 
-    println!("Enter the scheduled date (YYYY-MM-DD HH:MM:SS):");
+    println!("Enter the scheduled date (YYYY-MM-DD HH:MM:SS format, e.g., 2024-11-21 15:30:00):");
     std::io::stdin().read_line(&mut scheduled_date_temp).unwrap();
-    let scheduled_date = NaiveDateTime::parse_from_str(&scheduled_date_temp.trim(), "%Y-%m-%d %H:%M:%S").expect("Invalid date format");
-    let tomorrow = Local::now().date_naive().succ_opt().unwrap().and_hms_opt(0, 0, 0).unwrap();
-    if scheduled_date < tomorrow {
-        println!("Scheduled date must be tomorrow or later.");
-        return;
-    }
+    let scheduled_date = match NaiveDateTime::parse_from_str(&scheduled_date_temp.trim(), "%Y-%m-%d %H:%M:%S") {
+        Ok(date) => date,
+        Err(_) => {
+            println!("Invalid date format. Please use YYYY-MM-DD HH:MM:SS format (your time doesnt matter, we will set it to 00:00:00) (e.g., 2024-11-21 00:00:00)");
+            return;
+        }
+    };
+
+    //remove only for demo
+   
+    // let tomorrow = Local::now().date_naive().succ_opt().unwrap().and_hms_opt(0, 0, 0).unwrap();
+    // if scheduled_date < tomorrow {
+    //     println!("Scheduled date must be tomorrow or later.");
+    //     return;
+    // }
     
     // Insert the new scheduled transaction into the database
     match add_scheduled_transaction(conn, from_account_id_temp, to_account_id, amount, &currency, scheduled_date) {
@@ -352,8 +347,46 @@ pub fn add_scheduled_transaction_flow(conn: &mut diesel::PgConnection, from_acco
         Err(e) => println!("Failed to add scheduled transaction: {:?}", e),
     }
 }
+pub fn validate_scheduled_transaction(conn: &mut diesel::PgConnection, transaction_id_to_validate: Uuid) -> bool {
+    use diesel::prelude::*;
+    use rust_eze::schema::scheduled_transactions::dsl::*;
+    use rust_eze::models::ScheduledTransaction;
+    match scheduled_transactions.find(transaction_id_to_validate).first::<ScheduledTransaction>(conn) {
+        Ok(_) => true,
+        Err(_) => false
+    }
+}
 
-pub async fn login_flow(conn: &mut diesel::PgConnection) {
+pub fn delete_scheduled_transaction_flow(conn: &mut diesel::PgConnection) {
+    let mut transaction_id_to_delete = String::new();
+    print!("Enter the ID of the scheduled transaction to delete: ");
+    io::stdout().flush().unwrap();
+    io::stdin().read_line(&mut transaction_id_to_delete).unwrap();
+    let transaction_id_to_delete: Uuid = match transaction_id_to_delete.trim().parse() {
+        Ok(id) => id,
+        Err(_) => {
+            println!("Invalid scheduled transaction ID. Please enter a valid number.");
+            return;
+        }
+    };
+    //verify the transaction exists
+    if !validate_scheduled_transaction(conn, transaction_id_to_delete) {
+        println!("Scheduled transaction does not exist.");
+        return;
+    }
+
+    match delete_scheduled_transaction(conn, transaction_id_to_delete) {
+        Ok(_) => println!("Scheduled transaction deleted"),
+        Err(e) => println!("Failed to delete scheduled transaction: {:?}", e),
+    }
+}
+pub fn view_scheduled_transactions_flow(conn: &mut diesel::PgConnection, account_id: Uuid) {
+    match view_scheduled_transactions(conn, account_id) {
+        Ok(scheduled_transactions) => println!("Scheduled transactions: {:#?}", scheduled_transactions),
+        Err(e) => println!("Failed to get scheduled transactions: {:?}", e),
+    }
+}
+pub fn login_flow(conn: &mut diesel::PgConnection) {
     let mut username = String::new();  
     print!("Enter your username: ");
     io::stdout().flush().unwrap();
@@ -391,7 +424,9 @@ pub async fn login_flow(conn: &mut diesel::PgConnection) {
                     "5" => get_transactions_flow(conn, account_id),
                     "6" => add_money_to_sub_account_flow(conn, account_id),
                     "7" => add_scheduled_transaction_flow(conn, account_id),
-                    "8" => {
+                    "8" => view_scheduled_transactions_flow(conn, account_id),
+                    "9" => delete_scheduled_transaction_flow(conn),
+                    "10" => {
                         println!("Exiting... Goodbye!");
                         break;
                     }
@@ -415,7 +450,7 @@ pub fn admin_flow(conn: &mut diesel::PgConnection) {
     io::stdin().read_line(&mut password).unwrap();
     let password = password.trim();
 
-    if username == "admin" && password == "6969" {
+    if username == "admin" && password == "admin" {
         loop {
             println!("=== ADMIN MODE ===");
             println!("1. Get pending transactions");
@@ -485,31 +520,10 @@ pub fn add_money_to_sub_account_flow(conn: &mut diesel::PgConnection, account_id
     }
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     dotenv().ok();
-    let conn = Arc::new(Mutex::new(establish_connection()));
+    let mut conn = establish_connection();
     
-    // Spawn the scheduler task
-    let scheduler_conn = conn.clone();
-    tokio::spawn(async move {
-        loop {
-            // Process scheduled transactions
-            let mut locked_conn = scheduler_conn.lock().await;
-            log_to_file("Starting scheduled transaction processing");
-    
-            match process_scheduled_transactions(&mut locked_conn) {
-                Ok(_) => log_to_file("Successfully processed scheduled transactions"),
-                Err(e) => log_to_file(&format!("Error processing scheduled transactions: {:?}", e)),
-            }
-            drop(locked_conn); // Explicitly drop the lock
-            
-            // Sleep for 24 hours
-            sleep(Duration::from_secs(24 * 60 * 60)).await;
-        }
-    });
-
-    // Your existing main loop
     loop {
         println!("Welcome to the Account Manager");
         println!("1. Login");
@@ -523,32 +537,16 @@ async fn main() {
         io::stdin().read_line(&mut choice).unwrap();
         let choice = choice.trim();
         
-        let mut locked_conn = conn.lock().await;
         match choice {
-            "1" => {
-                login_flow(&mut locked_conn).await;
-                drop(locked_conn);
-            },
-            "2" => {
-                create_account_flow(&mut locked_conn);
-                drop(locked_conn);
-            },
-            "3" => {
-                get_accounts_flow(&mut locked_conn);
-                drop(locked_conn);
-            },
-            "4" => {
-                admin_flow(&mut locked_conn);
-                drop(locked_conn);
-            },
+            "1" => login_flow(&mut conn),
+            "2" => create_account_flow(&mut conn),
+            "3" => get_accounts_flow(&mut conn),
+            "4" => admin_flow(&mut conn),
             "5" => {
                 println!("Exiting... Goodbye!");
                 break;
             }
-            _ => {
-                println!("Invalid choice, please try again.");
-                drop(locked_conn);
-            },
+            _ => println!("Invalid choice, please try again."),
         }
     }
 }

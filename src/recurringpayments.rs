@@ -5,9 +5,20 @@ use crate::models::ScheduledTransaction;
 use std::fs::OpenOptions;
 use std::io::Write;
 use chrono::Local;
+use dotenvy::dotenv;
+use crate::sendalert::send_telegram_alert;
+use std::env;
+
+   
+pub fn establish_connection() -> PgConnection {
+    dotenv().ok();
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    PgConnection::establish(&database_url)
+        .expect(&format!("Error connecting to {}", database_url))
+}
 
 
-pub fn process_scheduled_transactions(conn: &mut PgConnection) -> Result<(), diesel::result::Error> {
+pub async fn process_scheduled_transactions(conn: &mut PgConnection) -> Result<(), diesel::result::Error> {
     use crate::schema::scheduled_transactions::dsl::*;
     let time_to_filter_by = Utc::now().naive_utc().date().and_hms_opt(0, 0, 0).unwrap();
     //println!("Time to filter by: {:?}", time_to_filter_by);
@@ -52,9 +63,12 @@ pub fn process_scheduled_transactions(conn: &mut PgConnection) -> Result<(), die
                 diesel::update(scheduled_transactions.find(transaction.id))
                     .set(scheduled_date.eq(next_date))
                     .execute(conn)?;
+
+                send_telegram_alert(&format!("Executed scheduled transaction: {:?}", transaction)).await;
                 //println!("Executed scheduled transaction: {:?}", transaction);
             }
             Err(e) => {
+                send_telegram_alert(&format!("Failed to execute scheduled transaction {:?}: {:?}", transaction, e)).await;
                 println!("Failed to execute scheduled transaction {:?}: {:?}", transaction, e);
             }
         }
@@ -77,6 +91,3 @@ pub fn log_to_file(message: &str) {
         let _ = writeln!(file, "[{}] {}", timestamp, message);
     }
 }
-
-
-

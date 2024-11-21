@@ -2,7 +2,7 @@ use std::process::Command;
 use std::str;
 use diesel::PgConnection;
 use anyhow::{Result, anyhow};
-use diesel::prelude::*;
+
 
 pub fn generate_totp_secret() -> Result<String> {
     let current_dir = std::env::current_dir()

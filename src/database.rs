@@ -173,3 +173,16 @@ pub fn get_scheduled_transactions(conn: &mut PgConnection) -> Result<Vec<Schedul
     use crate::schema::scheduled_transactions::dsl::*;
     scheduled_transactions.load::<ScheduledTransaction>(conn)
 }
+
+pub fn view_scheduled_transactions(conn: &mut PgConnection, account_id_to_view: Uuid) -> Result<Vec<ScheduledTransaction>, diesel::result::Error> {
+    use crate::schema::scheduled_transactions::dsl::*;
+    scheduled_transactions
+        .filter(from_account_id.eq(account_id_to_view))
+        .load::<ScheduledTransaction>(conn)
+}
+
+pub fn delete_scheduled_transaction(conn: &mut PgConnection, transaction_id_to_delete: Uuid) -> Result<usize, diesel::result::Error> {
+    use crate::schema::scheduled_transactions::dsl::*;
+    diesel::delete(scheduled_transactions.find(transaction_id_to_delete))
+        .execute(conn)
+}

@@ -216,3 +216,10 @@ cargo run --bin main
 - Currency codes verified against whitelist
 - Transaction limits enforced
 - Audit trail maintained
+
+
+## Future Work
+- Add post-quantum cryptography for enhanced security
+- Integrate with Blockchain for secure transactions
+- Asynchronous processing for improved performance
+- Improved UI/UX for better user experience

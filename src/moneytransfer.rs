@@ -1,7 +1,7 @@
 use diesel::prelude::*;
 use diesel::pg::PgConnection;
 use uuid::Uuid;
-use crate::models::{Account, SubAccount, Transaction, NewTransaction};
+use crate::models::{SubAccount, Transaction, NewTransaction};
 use reqwest::blocking::Client;
 use serde::Deserialize;
 use crate::models::PendingTransaction;

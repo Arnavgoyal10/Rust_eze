@@ -5,6 +5,7 @@ use crate::schema::accounts;
 use crate::schema::sub_accounts;
 use crate::schema::transactions;
 use crate::schema::pending_transactions;
+use crate::schema::scheduled_transactions;
 use crate::schema::username_password;
 
 pub const ADMIN_ACCOUNT_ID: Uuid = Uuid::from_u128(0);
@@ -97,4 +98,28 @@ pub struct NewUsernamePassword<'a> {
     pub passwd: &'a str,
     pub totp_secret: Option<&'a str>,
     pub account_id: Option<Uuid>,
+}
+
+#[derive(Queryable, Selectable, Debug)]
+#[diesel(table_name = scheduled_transactions)]
+pub struct ScheduledTransaction {
+    pub id: Uuid,
+    pub from_account_id: Uuid,
+    pub to_account_id: Uuid,
+    pub amount: f64,
+    pub currency: String,
+    pub scheduled_date: NaiveDateTime,
+    pub executed: bool,
+}
+
+
+#[derive(Insertable)]
+#[diesel(table_name = scheduled_transactions)]
+pub struct NewScheduledTransaction<'a> {
+    pub from_account_id: Uuid,
+    pub to_account_id: Uuid,
+    pub amount: f64,
+    pub currency: &'a str,
+    pub scheduled_date: NaiveDateTime,
+    pub executed: bool,
 }

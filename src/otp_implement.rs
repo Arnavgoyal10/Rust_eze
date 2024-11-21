@@ -9,8 +9,6 @@ pub fn generate_totp_secret() -> Result<String> {
         .map_err(|e| anyhow!("Failed to get current directory: {}", e))?;
     let script_path = current_dir.join("src").join("otp.py");
 
-    println!("Attempting to execute script at: {:?}", script_path);
-
     let output = Command::new("python3")
         .arg(&script_path)
         .arg("generate")
@@ -59,7 +57,7 @@ pub fn verify_totp(secret: &str, totp_code: &str) -> Result<bool> {
     Ok(result == "true")
 }
 
-pub fn verify_totp_flow(conn: &mut PgConnection, username_to_verify: &str, password_to_verify: &str) -> Result<bool> {
+pub fn verify_totp_flow(conn: &mut PgConnection, username_to_verify: &str) -> Result<bool> {
     use crate::schema::username_password::dsl::*;
     use crate::models::UsernamePassword;
     use diesel::prelude::*;

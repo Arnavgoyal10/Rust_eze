@@ -3,10 +3,10 @@ use diesel::pg::PgConnection;
 use uuid::Uuid;
 use dotenvy::dotenv;
 use std::env;
-use crate::models::{Account, SubAccount, Transaction, NewTransaction, UsernamePassword, NewUsernamePassword};
+use crate::models::{Account, SubAccount, UsernamePassword, ScheduledTransaction};
 use crate::otp_implement::{generate_totp_secret, verify_totp_flow};
 use bcrypt::{hash, verify, DEFAULT_COST};
-
+use chrono::NaiveDateTime;
 
 pub fn establish_connection() -> PgConnection {
     dotenv().ok();
@@ -103,7 +103,7 @@ pub fn validate_username_password(conn: &mut PgConnection, username_to_validate:
             .unwrap_or(false) 
         {
             // Only verify TOTP if password is correct
-            if verify_totp_flow(conn, username_to_validate, password_to_validate).unwrap() {
+            if verify_totp_flow(conn, username_to_validate).unwrap() {
                 return Some(user.account_id.unwrap());
             }
         }
@@ -147,4 +147,29 @@ pub fn add_username_password(conn: &mut PgConnection, username_to_add: &str, pas
         .returning(UsernamePassword::as_returning())
         .get_result(conn)
         .expect("Error saving new username password"))
+}
+
+pub fn add_scheduled_transaction(conn: &mut PgConnection, from_account_id_temp: Uuid, to_account_id_temp: Uuid, amount_temp: f64, currency_temp: &str, scheduled_date_temp: NaiveDateTime) -> Result<ScheduledTransaction, diesel::result::Error> {
+    use crate::schema::scheduled_transactions::dsl::*;
+    let date_to_set = scheduled_date_temp.date();
+    let date_to_set_with_time = date_to_set.and_hms_opt(0, 0, 0).unwrap();
+    let new_scheduled_transaction_temp = crate::models::NewScheduledTransaction {
+        from_account_id: from_account_id_temp,
+        to_account_id: to_account_id_temp,
+        amount: amount_temp,
+        currency: currency_temp,
+        scheduled_date: date_to_set_with_time,
+        executed: false,
+    };
+
+    Ok(diesel::insert_into(scheduled_transactions)
+        .values(&new_scheduled_transaction_temp)
+        .returning(ScheduledTransaction::as_returning())
+        .get_result(conn)
+        .expect("Error saving new scheduled transaction"))
+}
+
+pub fn get_scheduled_transactions(conn: &mut PgConnection) -> Result<Vec<ScheduledTransaction>, diesel::result::Error> {
+    use crate::schema::scheduled_transactions::dsl::*;
+    scheduled_transactions.load::<ScheduledTransaction>(conn)
 }

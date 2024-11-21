@@ -33,6 +33,18 @@ diesel::table! {
 }
 
 diesel::table! {
+    scheduled_transactions (id) {
+        id -> Uuid,
+        from_account_id -> Uuid,
+        to_account_id -> Uuid,
+        amount -> Float8,
+        currency -> Varchar,
+        scheduled_date -> Timestamp,
+        executed -> Bool,
+    }
+}
+
+diesel::table! {
     sub_accounts (id) {
         id -> Uuid,
         account_id -> Nullable<Uuid>,
@@ -70,6 +82,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     accounts,
     pending_transactions,
     records,
+    scheduled_transactions,
     sub_accounts,
     transactions,
     username_password,

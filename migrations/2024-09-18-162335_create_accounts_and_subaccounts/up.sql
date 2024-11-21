@@ -35,13 +35,26 @@ CREATE TABLE transactions (
     transaction_date TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
---Create pending transactions table
+--Create pending transactions table 
 CREATE TABLE pending_transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     account_id_to_add UUID REFERENCES accounts(id) ON DELETE CASCADE,
     amount DOUBLE PRECISION NOT NULL,
     transfer_currency VARCHAR NOT NULL,
     transaction_date TIMESTAMP NOT NULL DEFAULT NOW()
+);
+    
+
+
+--Create scheduled transactions table
+CREATE TABLE scheduled_transactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    from_account_id UUID NOT NULL REFERENCES accounts(id),
+    to_account_id UUID NOT NULL REFERENCES accounts(id),
+    amount DOUBLE PRECISION NOT NULL,
+    currency VARCHAR NOT NULL,
+    scheduled_date TIMESTAMP NOT NULL,
+    executed BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- Insert admin account with a known UUID
@@ -61,5 +74,6 @@ VALUES
     ('00000000-0000-0000-0000-000000000000', 'EUR', 999999999999.99);
 
 -- Insert admin username and password (using bcrypt hash of '6969')
-INSERT INTO username_password (username, passwd, account_id)
-VALUES ('admin', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewYpwBAM.qYLQw8y', '00000000-0000-0000-0000-000000000000');//password is 6969
+INSERT INTO username_password (username, passwd, totp_secret, account_id)
+VALUES ('admin', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewYpwBAM.qYLQw8y', NULL, '00000000-0000-0000-0000-000000000000');
+--password is 6969

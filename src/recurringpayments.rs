@@ -80,14 +80,21 @@ pub async fn process_scheduled_transactions(conn: &mut PgConnection) -> Result<(
 
 
 pub fn log_to_file(message: &str) {
-    let log_path = "recurring_payments.log";
+    // Get log path from environment variable or use default
+    let log_path = env::var("RECURRING_PAYMENTS_LOG")
+        .unwrap_or_else(|_| "recurring_payments.log".to_string());
+    
     let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S");
     
     if let Ok(mut file) = OpenOptions::new()
         .create(true)
         .append(true)
-        .open(log_path) 
+        .open(&log_path) 
     {
-        let _ = writeln!(file, "[{}] {}", timestamp, message);
+        if let Err(e) = writeln!(file, "[{}] {}", timestamp, message) {
+            eprintln!("Failed to write to log file: {}", e);
+        }
+    } else {
+        eprintln!("Failed to open log file at: {}", log_path);
     }
 }

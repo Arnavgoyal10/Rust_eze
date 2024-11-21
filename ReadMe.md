@@ -1,100 +1,218 @@
-# Rust EZE Banking System
+ Rust EZE Banking System
 
-A command-line banking system built in Rust that allows users to manage accounts, sub-accounts, and transactions.
+A robust command-line banking system built in Rust that provides secure account management, multi-currency transactions, and scheduled payment capabilities.
+
+## Table of Contents
+- [Features](#features)
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [Security](#security)
+- [API Documentation](#api-documentation)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Features
 
-- Account Management
-  - Create new accounts with username/password authentication
-  - Create sub-accounts with different currencies
-  - View account balances
-  - Get transaction history
+### Account Management
+- User account creation with secure authentication
+- Sub-account creation supporting multiple currencies
+- Real-time balance tracking
+- Detailed transaction history
 
-- Transaction Capabilities  
-  - Transfer between sub-accounts
-  - Transfer money to other users
-  - Add money to sub-accounts
-  - Schedule future transactions
+### Transaction Capabilities
+- Internal transfers between sub-accounts with automatic currency conversion
+- External transfers to other user accounts
+- Direct deposits to sub-accounts
+- Scheduled/recurring transactions
+- Pending transaction approval system
 
-- Security
-  - Password hashing using bcrypt
-  - Username/password authentication
-  - OTP verification
-  - Admin interface with separate credentials
+### Multi-Currency Support
+- Supports 7 major currencies: USD, EUR, GBP, JPY, INR, SGD, AUD
+- Real-time currency conversion using ExchangeRate API
+- Automatic currency validation
+- Amount validation and precision handling
 
-- Multi-Currency Support
-  - Supports USD, EUR, GBP, JPY, INR, SGD, AUD
-  - Currency validation
-  - Amount validation
+### Security Features
+- Password hashing using bcrypt
+- Two-factor authentication using TOTP
+- Admin interface with separate authentication
+- Input validation and sanitization
+- Transaction verification system
 
-## Getting Started
+## Architecture
 
-1. Clone the repository
-    ```bash
-    git clone https://github.com/Arnavgoyal10/Rust_eze.git
-    ```
-2. Install Dependencies
-   - Ensure you have Rust and Cargo installed
-   - Install PostgreSQL database
-   - Install Docker
-   - Run `cargo build` to install required packages
+### Technology Stack
+- **Backend**: Rust with Actix-web framework
+- **Database**: PostgreSQL with Diesel ORM
+- **Authentication**: bcrypt + TOTP
+- **External Services**: ExchangeRate API for currency conversion
+- **Notifications**: Telegram Bot API
 
-2. Database Setup
-   - Run a Docker container with PostgreSQL
-   - Set database URL in environment variables file .env
-   - Run migrations to set up schema by running 'diesel migration run' in the terminal
+### Core Components
+1. **Account Manager**: Handles account creation and management
+2. **Transaction Engine**: Processes all financial transactions
+3. **Scheduler**: Manages recurring payments and scheduled transactions
+4. **Security Layer**: Handles authentication and authorization
+5. **Currency Service**: Manages currency conversions and validations
 
-3. Run the venv
-   - Run 'source venv/bin/activate' in the terminal
+## Prerequisites
 
-4. Running the Application
-   ```bash
-   cargo run
-   ```
+- Rust (latest stable version)
+- PostgreSQL 12+
+- Docker
+- Python 3.7+ (for TOTP generation)
+- Telegram Bot Token (for notifications)
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/Arnavgoyal10/Rust_eze.git
+cd Rust_eze
+```
+2. Install dependencies:
+```bash
+cargo build
+```
+
+3. Run a docker container for postgres:
+```bash
+docker run --name Rust_eze -e POSTGRES_PASSWORD=password -p 5432:5432 -d postgres
+```
+
+4. Set up environment variables in .env file
+```
+DATABASE_URL=postgres://admin:password@localhost:5432/Rust_eze
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+TELEGRAM_CHAT_ID=your_telegram_chat_id
+```
+
+5. Run database migrations to initialize the database:
+```bash
+diesel migration run
+```
+
+6. Set up a cronjob to run the recurring transactions every day:
+```bash
+crontab -e
+0 0 * * * cd /path/to/rust_eze && /path/to/.cargo/bin/cargo run --bin recurring_payments >> /path/to/rust_eze/cron.log 2>&1
+```
+Note: Replace /path/to/rust_eze with the actual path to the Rust_eze directory.
 
 ## Usage
 
-### Creating an Account
-1. Select "Create Account" option
-2. Enter account name
+### Basic Operations
+
+1. Start the application:
+```bash
+cargo run --bin main
+```
+
+2. Create a new account:
+```
+1. Select "Create Account"
+2. Enter account holder name
 3. Set up username and password
+4. Save TOTP secret for 2FA
+```
 
-### Making Transfers
-1. Log in with username/password
-2. Choose transfer type:
-   - Between sub-accounts
-   - To another user
-3. Enter transfer details (amount, currency, recipient)
+3. Login to your account:
+```
+1. Select "Login"
+2. Enter username and password
+3. Enter TOTP code for 2FA
+```
 
-### Scheduled Transactions
-1. Log in to your account
-2. Select "Add scheduled transaction"
-3. Enter transaction details and future date
+4. Create a sub-account:
+```
+1. Select "Create Sub-account"
+2. Choose currency
+3. Enter initial deposit amount
+4. Confirm sub-account creation
+```
 
-### Admin Interface
-1. Log in with admin credentials (username: admin, password: 6969)
-2. Select "Admin interface"
-3. Perform admin tasks such as approving pending transactions
+5. Add funds to your sub-account:
+```
+1. Select "Add Funds"
+2. Choose sub-account
+3. Enter amount to add
+4. Wait for admin approval of transaction
+```
 
-## Technical Details
+6. Check your balance:
+```
+1. Select "Check Balance"
+2. Choose sub-account
+3. View current balance
+```
 
-Built using:
-- Rust with Actix-web framework
-- Diesel ORM for database operations
-- PostgreSQL database
-- bcrypt for password hashing
-- UUID for unique identifiers
-- Chrono for datetime handling
+7. Perform transactions:
+```
+2. Choose transaction type
+3. Enter transaction details
+4. Confirm transaction
+```
 
-## Security Notes
+8. Check your transaction history:
+```
+1. Select "Check Transaction History"
+2. Choose sub-account
+3. View transaction history
+```
 
-- Passwords are hashed before storage
-- OTP is generated using the TOTP algorithm
-- Input validation for all user inputs
-- Date validation for scheduled transactions
-- Currency code validation
-- Amount validation
+9. Add a recurring transaction:
+```
+1. Select "Add Recurring Transaction"
+2. Enter transaction details
+3. Set recurrence schedule
+4. Confirm transaction
+```
 
-## License
+10. Delete a scheduled transaction:
+```
+1. Select "View Scheduled Transactions"
+2. Copy transaction ID of the transaction to delete
+3. Select "Delete Scheduled Transaction"
+4. Enter transaction ID to delete
+5. Confirm deletion
+```
 
-This project is open source and available under the MIT License.
+### Admin Operations
+
+1. Login to your account as admin:
+```
+1. Select "Admin Login"
+2. Enter admin username and password (admin/admin)
+```
+
+2. Approve pending transactions:
+```
+1. Select "View Pending Transactions"
+2. Copy the transaction ID of the transaction to approve
+3. Select "Approve Transaction"
+4. Enter transaction ID to approve
+5. Confirm approval
+```
+
+3. View scheduled transactions:
+```
+1. Select "View Scheduled Transactions"
+2. View scheduled transactions
+```
+
+
+## Security
+
+### Authentication Flow
+1. Password verification using bcrypt
+2. TOTP verification using PyOTP
+3. Session management with secure tokens
+
+### Transaction Security
+- All amounts validated before processing
+- Currency codes verified against whitelist
+- Transaction limits enforced
+- Audit trail maintained

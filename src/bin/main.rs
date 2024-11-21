@@ -1,13 +1,10 @@
-// use diesel::pg::PgConnection;
 use dotenvy::dotenv;
-// use std::env;
 use rust_eze::database::{establish_connection, create_account, create_sub_account, get_accounts, add_username_password, validate_username_password, get_scheduled_transactions, add_scheduled_transaction, delete_scheduled_transaction, view_scheduled_transactions};
 use rust_eze::moneytransfer::{transfer_between_sub_accounts, get_balance, transfer_money, get_transactions, add_money_to_sub_account, approve_pending_transaction, get_pending_transactions};
 use clap::{Parser, Subcommand};
 use regex::Regex;
 use std::io::{self, Write};
 use uuid::Uuid;
-use chrono::Local;
 use chrono::NaiveDateTime;
 #[derive(Parser)]
 #[command(name = "Account Manager")]
@@ -408,7 +405,9 @@ pub fn login_flow(conn: &mut diesel::PgConnection) {
                 println!("5. Get transactions");
                 println!("6. Add money to sub-account");
                 println!("7. Add scheduled transaction");
-                println!("8. Exit");
+                println!("8. View scheduled transactions");
+                println!("9. Delete scheduled transaction");
+                println!("10. Exit");
                 
                 let mut choice = String::new();
                 print!("Enter your choice (1-8): ");
